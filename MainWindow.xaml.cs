@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -11,6 +10,7 @@ using System.Windows.Media.Imaging;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using static TopBarPoC.NativeMethods;
 using WinFormsScreen = System.Windows.Forms.Screen;
 
 namespace TopBarPoC;
@@ -24,114 +24,13 @@ namespace TopBarPoC;
 //   - Full-screen exclusive apps: AppBar z-order policy not implemented; bar may be hidden.
 public partial class TopBarWindow : Window
 {
-    // ── Win32 structs ─────────────────────────────────────────────────────────
-    [StructLayout(LayoutKind.Sequential)]
-    private struct POINT { public int X, Y; }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct RECT  { public int Left, Top, Right, Bottom; }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct APPBARDATA
-    {
-        public uint   cbSize;
-        public IntPtr hWnd;
-        public uint   uCallbackMessage;
-        public uint   uEdge;
-        public RECT   rc;
-        public IntPtr lParam;
-    }
-
-    // ── P/Invoke ──────────────────────────────────────────────────────────────
-    [DllImport("user32.dll")]  private static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
-    [DllImport("shcore.dll")]  private static extern int    GetDpiForMonitor(IntPtr hMon, int dpiType, out uint dpiX, out uint dpiY);
-    [DllImport("user32.dll")]  private static extern bool   SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
-    [DllImport("shell32.dll")] private static extern UIntPtr SHAppBarMessage(uint dwMessage, ref APPBARDATA pData);
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
-                               private static extern uint   RegisterWindowMessage(string lpString);
-
-    // ── Window switcher P/Invoke ───────────────────────────────────────────────
-    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
-    [DllImport("user32.dll")]  private static extern bool   EnumWindows(EnumWindowsProc cb, IntPtr lParam);
-    [DllImport("user32.dll")]  private static extern bool   IsWindowVisible(IntPtr hWnd);
-    [DllImport("user32.dll")]  private static extern uint   GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-                               private static extern int    GetWindowText(IntPtr hWnd, StringBuilder buf, int len);
-    [DllImport("user32.dll")]  private static extern int    GetWindowTextLength(IntPtr hWnd);
-    [DllImport("user32.dll")]  private static extern IntPtr GetShellWindow();
-    [DllImport("user32.dll")]  private static extern int    GetWindowLong(IntPtr hWnd, int nIndex);
-    [DllImport("user32.dll")]  private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
-    [DllImport("user32.dll")]  private static extern bool   IsIconic(IntPtr hWnd);
-    [DllImport("user32.dll")]  private static extern bool   IsWindow(IntPtr hWnd);
-    [DllImport("user32.dll")]  private static extern bool   ShowWindow(IntPtr hWnd, int nCmdShow);
-    [DllImport("user32.dll")]  private static extern bool   SetForegroundWindow(IntPtr hWnd);
-    [DllImport("user32.dll")]  private static extern IntPtr GetForegroundWindow();
-    // SendMessageTimeout used instead of SendMessage for WM_GETICON to prevent UI thread
-    // hang when a target window is unresponsive (SMTO_ABORTIFHUNG returns immediately).
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
-                               private static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam, uint fuFlags, uint uTimeout, out IntPtr lpdwResult);
-    // Dual import for GetClassLong: x64 uses GetClassLongPtrW (returns IntPtr),
-    // x86 uses GetClassLongW (returns uint). Callers use GetClassLongPtrSafe().
-    [DllImport("user32.dll", EntryPoint = "GetClassLongPtrW")]
-                               private static extern IntPtr GetClassLongPtr64(IntPtr hWnd, int nIndex);
-    [DllImport("user32.dll", EntryPoint = "GetClassLongW")]
-                               private static extern uint   GetClassLong32(IntPtr hWnd, int nIndex);
-
-    // ── Constants ─────────────────────────────────────────────────────────────
-    private const uint ABM_NEW      = 0, ABM_REMOVE  = 1;
-    private const uint ABM_QUERYPOS = 2, ABM_SETPOS  = 3;
-    private const uint ABM_ACTIVATE = 6, ABM_WINDOWPOSCHANGED = 9;
-    private const uint ABE_TOP      = 1;
-    private const uint ABN_POSCHANGED = 1, ABN_FULLSCREENAPP = 2;
-    private const uint SWP_NOACTIVATE = 0x0010, SWP_NOZORDER = 0x0004;
-    private const int  WM_ACTIVATE = 0x0006, WM_WINDOWPOSCHANGED = 0x0047;
-    private const int  GWL_EXSTYLE      = -20;
-    private const int  WS_EX_TOOLWINDOW = 0x00000080, WS_EX_APPWINDOW = 0x00040000;
-    private const uint GW_OWNER         = 4;
-    private const int  SW_RESTORE       = 9;
-    private const uint WM_GETICON        = 0x007F;
-    private const uint SMTO_ABORTIFHUNG = 0x0002;
-    private const int  ICON_SMALL       = 0;
-    private const int  ICON_SMALL2      = 2;
-    private const int  GCLP_HICONSM    = -34;
-    private const int  GCLP_HICON      = -14;
-
-    // ── Window switcher types ─────────────────────────────────────────────────
-    private readonly record struct WindowInfo(IntPtr Handle, string Title, bool IsMinimized);
-
-    private sealed class WindowChipVm : INotifyPropertyChanged
-    {
-        public required IntPtr       Handle      { get; init; }
-        public required string       Title       { get; init; }
-        public required bool         IsMinimized { get; init; }
-        public          ImageSource? Icon        { get; init; }
-
-        private bool _isActive;
-        public bool IsActive
-        {
-            get => _isActive;
-            set
-            {
-                if (_isActive == value) return;
-                _isActive = value;
-                PropertyChanged?.Invoke(this, _isActivePcea);
-            }
-        }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-        private static readonly PropertyChangedEventArgs _isActivePcea = new(nameof(IsActive));
-    }
-
-    // Registered once per process; safe to call before any window is created
-    private static readonly uint WM_APPBAR         = RegisterWindowMessage("TopBarPoC_AppBarCallback");
-    private static readonly uint WM_TASKBARCREATED = RegisterWindowMessage("TaskbarCreated");
-
     // ── Fields ────────────────────────────────────────────────────────────────
     private readonly WinFormsScreen  _screen;
     private readonly DispatcherTimer _clock;
     private readonly DispatcherTimer _windowPollTimer;
     private          List<WindowChipVm> _chipVms     = [];
     private          List<WindowInfo>   _prevWindows = [];
+    private readonly Dictionary<IntPtr, ImageSource?> _iconCache = new();
     private bool _appBarRegistered;
 
     // ── Construction ──────────────────────────────────────────────────────────
@@ -303,7 +202,7 @@ public partial class TopBarWindow : Window
             int  exStyle      = GetWindowLong(hWnd, GWL_EXSTYLE);
             bool isToolWindow = (exStyle & WS_EX_TOOLWINDOW) != 0;
             bool isAppWindow  = (exStyle & WS_EX_APPWINDOW)  != 0;
-            bool hasOwner     = GetWindow(hWnd, GW_OWNER) != IntPtr.Zero;
+            bool hasOwner     = NativeMethods.GetWindow(hWnd, GW_OWNER) != IntPtr.Zero;
 
             if (!isAppWindow && (hasOwner || isToolWindow)) return true;
 
@@ -328,12 +227,17 @@ public partial class TopBarWindow : Window
 
         if (listChanged)
         {
+            // Drop cache entries for handles no longer visible
+            var current = new HashSet<IntPtr>(windows.Select(w => w.Handle));
+            foreach (var stale in _iconCache.Keys.Where(k => !current.Contains(k)).ToList())
+                _iconCache.Remove(stale);
+
             _chipVms = windows.Select(w => new WindowChipVm
             {
                 Handle      = w.Handle,
                 Title       = w.Title,
                 IsMinimized = w.IsMinimized,
-                Icon        = ExtractIcon(w.Handle),
+                Icon        = GetCachedIcon(w.Handle),
             }).ToList();
             WindowChips.ItemsSource = _chipVms;
         }
@@ -343,15 +247,15 @@ public partial class TopBarWindow : Window
             vm.IsActive = vm.Handle == activeHwnd;
     }
 
-    // x86/x64 safe wrapper: GetClassLongPtrW on 64-bit, GetClassLongW on 32-bit
-    private static IntPtr GetClassLongPtrSafe(IntPtr hWnd, int nIndex)
-        => IntPtr.Size == 8
-            ? GetClassLongPtr64(hWnd, nIndex)
-            : (IntPtr)GetClassLong32(hWnd, nIndex);
+    // Returns cached icon; fetches and caches on first access per handle
+    private ImageSource? GetCachedIcon(IntPtr hwnd)
+    {
+        if (!_iconCache.TryGetValue(hwnd, out var icon))
+            _iconCache[hwnd] = icon = ExtractIcon(hwnd);
+        return icon;
+    }
 
     // Fallback chain: ICON_SMALL2 → ICON_SMALL → class small icon → class icon
-    // SendMessageTimeout with SMTO_ABORTIFHUNG aborts immediately if target is hung,
-    // preventing the UI thread from blocking on an unresponsive window.
     private static ImageSource? ExtractIcon(IntPtr hwnd)
     {
         var hIcon = SendIconMsg(hwnd, ICON_SMALL2);
@@ -365,13 +269,6 @@ public partial class TopBarWindow : Window
                 hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
         }
         catch { return null; }
-    }
-
-    private static IntPtr SendIconMsg(IntPtr hwnd, int iconType)
-    {
-        SendMessageTimeout(hwnd, WM_GETICON, (IntPtr)iconType, IntPtr.Zero,
-            SMTO_ABORTIFHUNG, 50, out IntPtr result);
-        return result;
     }
 
     // UX concern (deferred): single click immediately switches focus with no visual confirmation.
