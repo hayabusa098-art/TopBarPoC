@@ -6,6 +6,8 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
@@ -64,6 +66,16 @@ public partial class TopBarWindow : Window
     [DllImport("user32.dll")]  private static extern bool   ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")]  private static extern bool   SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")]  private static extern IntPtr GetForegroundWindow();
+    // SendMessageTimeout used instead of SendMessage for WM_GETICON to prevent UI thread
+    // hang when a target window is unresponsive (SMTO_ABORTIFHUNG returns immediately).
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+                               private static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam, uint fuFlags, uint uTimeout, out IntPtr lpdwResult);
+    // Dual import for GetClassLong: x64 uses GetClassLongPtrW (returns IntPtr),
+    // x86 uses GetClassLongW (returns uint). Callers use GetClassLongPtrSafe().
+    [DllImport("user32.dll", EntryPoint = "GetClassLongPtrW")]
+                               private static extern IntPtr GetClassLongPtr64(IntPtr hWnd, int nIndex);
+    [DllImport("user32.dll", EntryPoint = "GetClassLongW")]
+                               private static extern uint   GetClassLong32(IntPtr hWnd, int nIndex);
 
     // ── Constants ─────────────────────────────────────────────────────────────
     private const uint ABM_NEW      = 0, ABM_REMOVE  = 1;
@@ -77,15 +89,22 @@ public partial class TopBarWindow : Window
     private const int  WS_EX_TOOLWINDOW = 0x00000080, WS_EX_APPWINDOW = 0x00040000;
     private const uint GW_OWNER         = 4;
     private const int  SW_RESTORE       = 9;
+    private const uint WM_GETICON        = 0x007F;
+    private const uint SMTO_ABORTIFHUNG = 0x0002;
+    private const int  ICON_SMALL       = 0;
+    private const int  ICON_SMALL2      = 2;
+    private const int  GCLP_HICONSM    = -34;
+    private const int  GCLP_HICON      = -14;
 
     // ── Window switcher types ─────────────────────────────────────────────────
     private readonly record struct WindowInfo(IntPtr Handle, string Title, bool IsMinimized);
 
     private sealed class WindowChipVm : INotifyPropertyChanged
     {
-        public required IntPtr Handle      { get; init; }
-        public required string Title       { get; init; }
-        public required bool   IsMinimized { get; init; }
+        public required IntPtr       Handle      { get; init; }
+        public required string       Title       { get; init; }
+        public required bool         IsMinimized { get; init; }
+        public          ImageSource? Icon        { get; init; }
 
         private bool _isActive;
         public bool IsActive
@@ -314,6 +333,7 @@ public partial class TopBarWindow : Window
                 Handle      = w.Handle,
                 Title       = w.Title,
                 IsMinimized = w.IsMinimized,
+                Icon        = ExtractIcon(w.Handle),
             }).ToList();
             WindowChips.ItemsSource = _chipVms;
         }
@@ -323,6 +343,40 @@ public partial class TopBarWindow : Window
             vm.IsActive = vm.Handle == activeHwnd;
     }
 
+    // x86/x64 safe wrapper: GetClassLongPtrW on 64-bit, GetClassLongW on 32-bit
+    private static IntPtr GetClassLongPtrSafe(IntPtr hWnd, int nIndex)
+        => IntPtr.Size == 8
+            ? GetClassLongPtr64(hWnd, nIndex)
+            : (IntPtr)GetClassLong32(hWnd, nIndex);
+
+    // Fallback chain: ICON_SMALL2 → ICON_SMALL → class small icon → class icon
+    // SendMessageTimeout with SMTO_ABORTIFHUNG aborts immediately if target is hung,
+    // preventing the UI thread from blocking on an unresponsive window.
+    private static ImageSource? ExtractIcon(IntPtr hwnd)
+    {
+        var hIcon = SendIconMsg(hwnd, ICON_SMALL2);
+        if (hIcon == IntPtr.Zero) hIcon = SendIconMsg(hwnd, ICON_SMALL);
+        if (hIcon == IntPtr.Zero) hIcon = GetClassLongPtrSafe(hwnd, GCLP_HICONSM);
+        if (hIcon == IntPtr.Zero) hIcon = GetClassLongPtrSafe(hwnd, GCLP_HICON);
+        if (hIcon == IntPtr.Zero) return null;
+        try
+        {
+            return Imaging.CreateBitmapSourceFromHIcon(
+                hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+        }
+        catch { return null; }
+    }
+
+    private static IntPtr SendIconMsg(IntPtr hwnd, int iconType)
+    {
+        SendMessageTimeout(hwnd, WM_GETICON, (IntPtr)iconType, IntPtr.Zero,
+            SMTO_ABORTIFHUNG, 50, out IntPtr result);
+        return result;
+    }
+
+    // UX concern (deferred): single click immediately switches focus with no visual confirmation.
+    // Users may accidentally activate windows while scanning chips. Consider a hover-preview
+    // or double-click-to-switch model in a future build.
     private void ChipButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button btn || btn.Tag is not IntPtr hwnd) return;
