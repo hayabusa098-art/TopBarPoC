@@ -116,16 +116,15 @@
                                            Foreground="{TemplateBinding Foreground}"
                                            FontFamily="{TemplateBinding FontFamily}"
                                            FontSize="{TemplateBinding FontSize}"/>
-                                <Ellipse x:Name="activeDot"
-                                         Grid.ColumnSpan="2"
-                                         Width="3" Height="3"
-                                         Fill="#7899A2"
-                                         Stroke="#A6C0C7"
-                                         StrokeThickness="0.5"
-                                         HorizontalAlignment="Center"
-                                         VerticalAlignment="Bottom"
-                                         Margin="0,0,0,2"
-                                         Visibility="Collapsed"/>
+                                <Rectangle x:Name="activeDot"
+                                           Grid.ColumnSpan="2"
+                                           Width="16" Height="2"
+                                           RadiusX="1" RadiusY="1"
+                                           Fill="#7899A2"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Bottom"
+                                           Margin="0,0,0,2"
+                                           Visibility="Collapsed"/>
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -308,12 +307,13 @@
         <!-- ── CENTER GROUP ── launcher + separator + chips (fills remaining space) ── -->
         <!-- ClipToBounds on the Grid: if chips list is too wide for the fill area,     -->
         <!-- content clips symmetrically inward rather than bleeding into the right zone -->
-        <Grid ClipToBounds="True">
+        <Grid x:Name="CenterGrid" ClipToBounds="True">
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center">
 
-                <Border BorderBrush="#293033"
+                <Border x:Name="LauncherPill"
+                        BorderBrush="#293033"
                         BorderThickness="1"
                         CornerRadius="9"
                         Padding="1,0">
@@ -370,7 +370,8 @@
                     </StackPanel>
                 </Border>
 
-                <Rectangle Width="1" Fill="#252525"
+                <Rectangle x:Name="ChipSeparator"
+                           Width="1" Fill="#252525"
                            Margin="7,8,9,8" VerticalAlignment="Stretch"/>
 
                 <ItemsControl x:Name="WindowChips"
@@ -386,6 +387,7 @@
                             <Button Content="{Binding Title}"
                                     Tag="{Binding Handle}"
                                     ToolTip="{Binding Title}"
+                                    Width="{Binding Width}"
                                     Margin="0,0,3,0"
                                     ContextMenuService.Placement="Bottom"
                                     Click="ChipButton_Click">

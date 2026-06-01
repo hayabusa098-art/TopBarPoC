@@ -31,6 +31,7 @@ public partial class TopBarWindow : Window
     private          List<WindowChipVm> _chipVms     = [];
     private          List<WindowInfo>   _prevWindows = [];
     private readonly Dictionary<IntPtr, ImageSource?> _iconCache = new();
+    private          double             _chipWidth   = 110.0;
     private bool _appBarRegistered;
     private IntPtr _lastExternalForeground;
 
@@ -69,6 +70,7 @@ public partial class TopBarWindow : Window
         UpdateClock();
         _clock.Start();
         CodeButton.IsEnabled = FindVSCode() is not null;
+        CenterGrid.SizeChanged += (_, _) => RecalcChipWidth();
         RefreshWindowChips();
         _windowPollTimer.Start();
     }
@@ -181,6 +183,23 @@ public partial class TopBarWindow : Window
         return IntPtr.Zero;
     }
 
+    // ── Adaptive chip width ───────────────────────────────────────────────────
+    private void RecalcChipWidth()
+    {
+        int n = _chipVms.Count;
+        if (n == 0) { _chipWidth = 110.0; return; }
+
+        double available = CenterGrid.ActualWidth
+                         - LauncherPill.ActualWidth
+                         - ChipSeparator.ActualWidth
+                         - ChipSeparator.Margin.Left
+                         - ChipSeparator.Margin.Right;
+
+        _chipWidth = Math.Clamp(available / n - 3.0, 56.0, 110.0);
+        foreach (var vm in _chipVms)
+            vm.Width = _chipWidth;
+    }
+
     // ── Window switcher ───────────────────────────────────────────────────────
     private List<WindowInfo> EnumerateWindows()
     {
@@ -267,6 +286,7 @@ public partial class TopBarWindow : Window
                 Icon        = GetCachedIcon(w.Handle),
             }).ToList();
             WindowChips.ItemsSource = _chipVms;
+            RecalcChipWidth();
         }
 
         // Sync IsMinimized via INPC (no ItemsSource rebind needed)

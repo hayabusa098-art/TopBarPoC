@@ -35,7 +35,20 @@ internal sealed class WindowChipVm : INotifyPropertyChanged
         }
     }
 
+    private double _width = 110.0;
+    public double Width
+    {
+        get => _width;
+        set
+        {
+            if (_width == value) return;
+            _width = value;
+            PropertyChanged?.Invoke(this, _widthPcea);
+        }
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
     private static readonly PropertyChangedEventArgs _isMinimizedPcea = new(nameof(IsMinimized));
     private static readonly PropertyChangedEventArgs _isActivePcea    = new(nameof(IsActive));
+    private static readonly PropertyChangedEventArgs _widthPcea       = new(nameof(Width));
 }
