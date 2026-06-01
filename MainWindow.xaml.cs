@@ -33,7 +33,6 @@ public partial class TopBarWindow : Window
     private readonly Dictionary<IntPtr, ImageSource?> _iconCache = new();
     private          double             _chipWidth   = 110.0;
     private bool _appBarRegistered;
-    private DispatcherTimer? _stateChangeTimer;
     private IntPtr _lastExternalForeground;
     private IntPtr _clickSnapshot = IntPtr.Zero;
 
@@ -56,7 +55,7 @@ public partial class TopBarWindow : Window
             HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(WndProc);
         };
         Loaded  += OnLoaded;
-        Closing += (_, _) => { _clock?.Stop(); _windowPollTimer?.Stop(); _stateChangeTimer?.Stop(); UnregisterAppBar(); };
+        Closing += (_, _) => { _clock?.Stop(); _windowPollTimer?.Stop(); UnregisterAppBar(); };
 
         _clock = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _clock.Tick += (_, _) => UpdateClock();
@@ -111,21 +110,14 @@ public partial class TopBarWindow : Window
     private void QueryAndApplyPosition(IntPtr hwnd, int heightPx)
     {
         var data = BuildAppBarData(hwnd, heightPx);
-        Debug.WriteLine($"[QueryAndApply] before QUERYPOS: rc=L{data.rc.Left} T{data.rc.Top} R{data.rc.Right} B{data.rc.Bottom}");
-
         SHAppBarMessage(ABM_QUERYPOS, ref data);
-        Debug.WriteLine($"[QueryAndApply] after  QUERYPOS: rc=L{data.rc.Left} T{data.rc.Top} R{data.rc.Right} B{data.rc.Bottom}");
-
         data.rc.Bottom = data.rc.Top + heightPx; // maintain 32 DIP regardless of shell adjustment
         SHAppBarMessage(ABM_SETPOS,   ref data);
-        Debug.WriteLine($"[QueryAndApply] after  SETPOS  : rc=L{data.rc.Left} T{data.rc.Top} R{data.rc.Right} B{data.rc.Bottom}");
-
         SetWindowPos(hwnd, IntPtr.Zero,
             data.rc.Left, data.rc.Top,
             data.rc.Right - data.rc.Left,
             data.rc.Bottom - data.rc.Top,
             SWP_NOACTIVATE | SWP_NOZORDER);
-        Debug.WriteLine($"[QueryAndApply] SetWindowPos target: x={data.rc.Left} y={data.rc.Top} w={data.rc.Right - data.rc.Left} h={data.rc.Bottom - data.rc.Top}");
     }
 
     private void UnregisterAppBar()
@@ -158,38 +150,6 @@ public partial class TopBarWindow : Window
                     break;
                 case ABN_FULLSCREENAPP:
                     // MVP: no policy; full-screen z-order handling deferred
-                    break;
-                case ABN_STATECHANGE:
-                    // Taskbar auto-hide or always-on-top state changed; recompute position.
-                    // Two-step approach, replicating the startup off-screen trick:
-                    // 1. Move off-screen immediately: ABM_QUERYPOS treats a visible window at
-                    //    the top edge as an obstacle and returns a stale rc.Top. Off-screen
-                    //    position makes the Shell treat us as not occupying any edge.
-                    // 2. Delay 300ms before re-registering: ABN_STATECHANGE fires before the
-                    //    Shell finalises the taskbar work area. Re-querying immediately returns
-                    //    the old coordinates. The timer is cancelled and restarted on rapid
-                    //    consecutive toggles so only the last change triggers a re-register.
-                    GetWindowRect(hwnd, out RECT scBefore);
-                    Debug.WriteLine($"[ABN_STATECHANGE] received — rect before: L={scBefore.Left} T={scBefore.Top} R={scBefore.Right} B={scBefore.Bottom}");
-                    SetWindowPos(hwnd, IntPtr.Zero, -32000, -32000,
-                        _screen.Bounds.Width, PhysicalBarHeight(),
-                        SWP_NOACTIVATE | SWP_NOZORDER);
-                    GetWindowRect(hwnd, out RECT scAfter);
-                    Debug.WriteLine($"[ABN_STATECHANGE] after off-screen move — rect: L={scAfter.Left} T={scAfter.Top} R={scAfter.Right} B={scAfter.Bottom}");
-                    _stateChangeTimer?.Stop();
-                    _stateChangeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-                    _stateChangeTimer.Tick += (_, _) =>
-                    {
-                        _stateChangeTimer!.Stop();
-                        _stateChangeTimer = null;
-                        GetWindowRect(hwnd, out RECT timerRect);
-                        Debug.WriteLine($"[ABN_STATECHANGE] timer fired — rect at fire: L={timerRect.Left} T={timerRect.Top} R={timerRect.Right} B={timerRect.Bottom}");
-                        Debug.WriteLine("[ABN_STATECHANGE] calling UnregisterAppBar + RegisterAppBar");
-                        UnregisterAppBar();
-                        RegisterAppBar();
-                    };
-                    _stateChangeTimer.Start();
-                    Debug.WriteLine("[ABN_STATECHANGE] 300ms timer armed");
                     break;
             }
         }
@@ -225,8 +185,6 @@ public partial class TopBarWindow : Window
         else if (msg == WM_WINDOWPOSCHANGING)
         {
             var wpos = Marshal.PtrToStructure<WINDOWPOS>(lParam);
-            Debug.WriteLine($"[WM_WINDOWPOSCHANGING] x={wpos.x} y={wpos.y} cx={wpos.cx} cy={wpos.cy} flags=0x{wpos.flags:X}");
-
             int  expectedTop = _screen.Bounds.Y;
             bool isNoMove    = (wpos.flags & 0x0002u) != 0; // SWP_NOMOVE
             // Narrow fix: corrects only the known obstacle-displacement case where the Shell
@@ -244,8 +202,6 @@ public partial class TopBarWindow : Window
         }
         else if (msg == WM_WINDOWPOSCHANGED)
         {
-            GetWindowRect(hwnd, out RECT wpcRect);
-            Debug.WriteLine($"[WM_WINDOWPOSCHANGED] rect: L={wpcRect.Left} T={wpcRect.Top} R={wpcRect.Right} B={wpcRect.Bottom} registered={_appBarRegistered}");
             if (_appBarRegistered)
             {
                 var data = new APPBARDATA
@@ -328,7 +284,6 @@ public partial class TopBarWindow : Window
             string processName = Process.GetProcessById((int)pid).ProcessName;
             return processName.Equals("TextInputHost",           StringComparison.OrdinalIgnoreCase) ||
                    processName.Equals("dwm",                    StringComparison.OrdinalIgnoreCase) ||
-                   processName.Equals("ApplicationFrameHost",   StringComparison.OrdinalIgnoreCase) ||
                    processName.Equals("SearchApp",              StringComparison.OrdinalIgnoreCase) ||
                    processName.Equals("SearchHost",             StringComparison.OrdinalIgnoreCase) ||
                    processName.Equals("ShellExperienceHost",    StringComparison.OrdinalIgnoreCase) ||
