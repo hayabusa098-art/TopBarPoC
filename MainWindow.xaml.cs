@@ -393,6 +393,11 @@ public partial class TopBarWindow : Window
                 return;
             }
 
+            // Build17: optimistic active update — instant chip highlight on success
+            if (sfwOk)
+                foreach (var vm in _chipVms)
+                    vm.IsActive = vm.Handle == hwnd;
+
             // Build16: one-shot 50ms retry if SFW failed or foreground did not switch
             if (!sfwOk || !fgMatch)
                 ScheduleForegroundRetry(hwnd, "[ChipClick.retry]");
@@ -455,6 +460,11 @@ public partial class TopBarWindow : Window
             Debug.WriteLine($"[ChipRestore] probable elevation/UIPI denial — retry skipped hwnd=0x{hwnd:X8}");
             return;
         }
+
+        // Build17: optimistic active update — instant chip highlight on success
+        if (sfwOk)
+            foreach (var vm in _chipVms)
+                vm.IsActive = vm.Handle == hwnd;
 
         // Build16: one-shot 50ms retry if SFW failed or foreground did not switch
         if (!sfwOk || !fgMatch)
