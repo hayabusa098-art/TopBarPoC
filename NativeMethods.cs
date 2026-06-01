@@ -69,6 +69,8 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     internal static extern bool    ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")]
+    internal static extern bool    PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")]
     internal static extern bool    SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")]
     internal static extern IntPtr  GetForegroundWindow();
@@ -101,7 +103,8 @@ internal static class NativeMethods
     internal const int  GWL_EXSTYLE       = -20;
     internal const int  WS_EX_TOOLWINDOW  = 0x00000080, WS_EX_APPWINDOW = 0x00040000;
     internal const uint GW_OWNER          = 4;
-    internal const int  SW_RESTORE        = 9;
+    internal const int  SW_MINIMIZE       = 6, SW_RESTORE = 9;
+    internal const uint WM_CLOSE          = 0x0010;
     internal const uint WM_GETICON        = 0x007F;
     internal const uint SMTO_ABORTIFHUNG  = 0x0002;
     internal const int  ICON_SMALL        = 0;

@@ -32,6 +32,7 @@ public partial class TopBarWindow : Window
     private          List<WindowInfo>   _prevWindows = [];
     private readonly Dictionary<IntPtr, ImageSource?> _iconCache = new();
     private bool _appBarRegistered;
+    private IntPtr _lastExternalForeground;
 
     // ── Construction ──────────────────────────────────────────────────────────
     public TopBarWindow(WinFormsScreen screen)
@@ -191,7 +192,8 @@ public partial class TopBarWindow : Window
         {
             if (result.Count >= 10) return false; // stop at cap
 
-            if (!IsWindowVisible(hWnd) || hWnd == shellWnd) return true;
+            bool isMinimized = IsIconic(hWnd);
+            if ((!IsWindowVisible(hWnd) && !isMinimized) || hWnd == shellWnd) return true;
 
             var textLen = GetWindowTextLength(hWnd);
             if (textLen == 0) return true;
@@ -208,7 +210,7 @@ public partial class TopBarWindow : Window
 
             var sb = new StringBuilder(textLen + 1);
             GetWindowText(hWnd, sb, sb.Capacity);
-            result.Add(new WindowInfo(hWnd, sb.ToString(), IsIconic(hWnd)));
+            result.Add(new WindowInfo(hWnd, sb.ToString(), isMinimized));
             return true;
         };
         EnumWindows(callback, IntPtr.Zero);
@@ -217,8 +219,11 @@ public partial class TopBarWindow : Window
 
     private void RefreshWindowChips()
     {
-        var activeHwnd = GetForegroundWindow();
-        var windows    = EnumerateWindows();
+        var foreground = GetForegroundWindow();
+        var selfHwnd   = new WindowInteropHelper(this).Handle;
+        if (foreground != selfHwnd)
+            _lastExternalForeground = foreground;
+        var windows = EnumerateWindows();
 
         bool listChanged = windows.Count != _prevWindows.Count ||
                            Enumerable.Range(0, windows.Count)
@@ -244,7 +249,7 @@ public partial class TopBarWindow : Window
 
         // Always sync active state (foreground window can change between polls)
         foreach (var vm in _chipVms)
-            vm.IsActive = vm.Handle == activeHwnd;
+            vm.IsActive = vm.Handle == _lastExternalForeground;
     }
 
     // Returns cached icon; fetches and caches on first access per handle
@@ -271,15 +276,43 @@ public partial class TopBarWindow : Window
         catch { return null; }
     }
 
-    // UX concern (deferred): single click immediately switches focus with no visual confirmation.
-    // Users may accidentally activate windows while scanning chips. Consider a hover-preview
-    // or double-click-to-switch model in a future build.
+    // Taskbar-style toggle: clicking the active window minimizes it; other chips restore/activate.
     private void ChipButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button btn || btn.Tag is not IntPtr hwnd) return;
         if (!IsWindow(hwnd)) return;
+        if (btn.DataContext is WindowChipVm { IsActive: true })
+        {
+            ShowWindow(hwnd, SW_MINIMIZE);
+            return;
+        }
         if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
         _ = SetForegroundWindow(hwnd); // may fail under Windows focus-stealing restrictions; silent fail is acceptable for MVP
+    }
+
+    private static bool TryGetContextWindow(object sender, out IntPtr hwnd)
+    {
+        hwnd = IntPtr.Zero;
+        if (sender is not MenuItem item ||
+            ContextMenu.ItemsControlFromItemContainer(item) is not ContextMenu menu ||
+            menu.PlacementTarget is not Button btn ||
+            btn.Tag is not IntPtr target ||
+            !IsWindow(target))
+            return false;
+        hwnd = target;
+        return true;
+    }
+
+    private void ChipMinimizeMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (TryGetContextWindow(sender, out var hwnd))
+            ShowWindow(hwnd, SW_MINIMIZE);
+    }
+
+    private void ChipCloseMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (TryGetContextWindow(sender, out var hwnd))
+            PostMessage(hwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

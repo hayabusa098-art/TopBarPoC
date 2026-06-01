@@ -146,6 +146,52 @@
             </Setter>
         </Style>
 
+        <Style x:Key="ChipContextMenuStyle" TargetType="ContextMenu">
+            <Setter Property="Background" Value="#101314"/>
+            <Setter Property="BorderBrush" Value="#293033"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="3"/>
+            <Setter Property="HasDropShadow" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="7"
+                                Padding="{TemplateBinding Padding}">
+                            <ItemsPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ChipContextMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Foreground" Value="#B8BCBE"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="border"
+                                Background="Transparent"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1A2224"/>
+                                <Setter Property="Foreground" Value="#A6C0C7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
     <!--
@@ -340,17 +386,30 @@
                                     Tag="{Binding Handle}"
                                     ToolTip="{Binding Title}"
                                     Margin="0,0,4,0"
+                                    ContextMenuService.Placement="Bottom"
                                     Click="ChipButton_Click">
+                                <Button.ContextMenu>
+                                    <ContextMenu Style="{StaticResource ChipContextMenuStyle}">
+                                        <MenuItem Header="Minimize"
+                                                  Style="{StaticResource ChipContextMenuItemStyle}"
+                                                  Click="ChipMinimizeMenuItem_Click"/>
+                                        <MenuItem Header="Close"
+                                                  Style="{StaticResource ChipContextMenuItemStyle}"
+                                                  Click="ChipCloseMenuItem_Click"/>
+                                    </ContextMenu>
+                                </Button.ContextMenu>
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource ChipButtonStyle}">
                                         <Style.Triggers>
                                             <!-- IsMinimized first; IsActive overrides if both true -->
                                             <DataTrigger Binding="{Binding IsMinimized}" Value="True">
                                                 <Setter Property="Foreground" Value="#4E4E4E"/>
+                                                <Setter Property="Opacity" Value="0.68"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsActive}" Value="True">
                                                 <Setter Property="Background" Value="#222222"/>
                                                 <Setter Property="Foreground" Value="#E2E2E2"/>
+                                                <Setter Property="Opacity" Value="1"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
