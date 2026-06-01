@@ -249,8 +249,13 @@ public partial class TopBarWindow : Window
         try
         {
             string processName = Process.GetProcessById((int)pid).ProcessName;
-            return processName.Equals("TextInputHost", StringComparison.OrdinalIgnoreCase) ||
-                   processName.Equals("dwm", StringComparison.OrdinalIgnoreCase);
+            return processName.Equals("TextInputHost",           StringComparison.OrdinalIgnoreCase) ||
+                   processName.Equals("dwm",                    StringComparison.OrdinalIgnoreCase) ||
+                   processName.Equals("ApplicationFrameHost",   StringComparison.OrdinalIgnoreCase) ||
+                   processName.Equals("SearchApp",              StringComparison.OrdinalIgnoreCase) ||
+                   processName.Equals("SearchHost",             StringComparison.OrdinalIgnoreCase) ||
+                   processName.Equals("ShellExperienceHost",    StringComparison.OrdinalIgnoreCase) ||
+                   processName.Equals("StartMenuExperienceHost", StringComparison.OrdinalIgnoreCase);
         }
         catch { return false; }
     }
@@ -268,8 +273,7 @@ public partial class TopBarWindow : Window
         bool structuralChange =
             windows.Count != _prevWindows.Count ||
             Enumerable.Range(0, windows.Count)
-                      .Any(i => windows[i].Handle != _prevWindows[i].Handle ||
-                                windows[i].Title  != _prevWindows[i].Title);
+                      .Any(i => windows[i].Handle != _prevWindows[i].Handle);
         _prevWindows = windows;
 
         if (structuralChange)
@@ -289,12 +293,15 @@ public partial class TopBarWindow : Window
             RecalcChipWidth();
         }
 
-        // Sync IsMinimized via INPC (no ItemsSource rebind needed)
+        // Sync IsMinimized and Title via INPC (no ItemsSource rebind needed)
         var byHandle = windows.ToDictionary(w => w.Handle);
         foreach (var vm in _chipVms)
         {
             if (byHandle.TryGetValue(vm.Handle, out var info))
+            {
                 vm.IsMinimized = info.IsMinimized;
+                vm.Title       = info.Title;
+            }
         }
 
         // Always sync active state (foreground window can change between polls)
@@ -359,10 +366,28 @@ public partial class TopBarWindow : Window
             ShowWindow(hwnd, SW_MINIMIZE);
     }
 
+    private void ChipRestoreMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryGetContextWindow(sender, out var hwnd)) return;
+        ShowWindow(hwnd, SW_RESTORE);
+        _ = SetForegroundWindow(hwnd);
+    }
+
     private void ChipCloseMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (TryGetContextWindow(sender, out var hwnd))
             PostMessage(hwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+    }
+
+    private void ChipContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu || menu.PlacementTarget is not Button btn) return;
+        bool isMinimized = btn.DataContext is WindowChipVm { IsMinimized: true };
+        foreach (var item in menu.Items.OfType<MenuItem>())
+        {
+            if (item.Tag is "minimize") item.Visibility = isMinimized ? Visibility.Collapsed : Visibility.Visible;
+            else if (item.Tag is "restore")  item.Visibility = isMinimized ? Visibility.Visible  : Visibility.Collapsed;
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

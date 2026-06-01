@@ -392,10 +392,16 @@
                                     ContextMenuService.Placement="Bottom"
                                     Click="ChipButton_Click">
                                 <Button.ContextMenu>
-                                    <ContextMenu Style="{StaticResource ChipContextMenuStyle}">
+                                    <ContextMenu Style="{StaticResource ChipContextMenuStyle}"
+                                                 Opened="ChipContextMenu_Opened">
                                         <MenuItem Header="Minimize"
+                                                  Tag="minimize"
                                                   Style="{StaticResource ChipContextMenuItemStyle}"
                                                   Click="ChipMinimizeMenuItem_Click"/>
+                                        <MenuItem Header="Restore"
+                                                  Tag="restore"
+                                                  Style="{StaticResource ChipContextMenuItemStyle}"
+                                                  Click="ChipRestoreMenuItem_Click"/>
                                         <MenuItem Header="Close"
                                                   Style="{StaticResource ChipContextMenuItemStyle}"
                                                   Click="ChipCloseMenuItem_Click"/>
