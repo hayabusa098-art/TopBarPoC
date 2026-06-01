@@ -304,15 +304,18 @@
 
         </StackPanel>
 
-        <!-- ── CENTER GROUP ── launcher + separator + chips (fills remaining space) ── -->
-        <!-- ClipToBounds on the Grid: if chips list is too wide for the fill area,     -->
-        <!-- content clips symmetrically inward rather than bleeding into the right zone -->
+        <!-- ── CENTER GROUP ── launcher + separator + horizontally scrolling chips ── -->
         <Grid x:Name="CenterGrid" ClipToBounds="True">
-            <StackPanel Orientation="Horizontal"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center">
+            <Grid HorizontalAlignment="Center"
+                  VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
 
                 <Border x:Name="LauncherPill"
+                        Grid.Column="0"
                         BorderBrush="#293033"
                         BorderThickness="1"
                         CornerRadius="9"
@@ -371,10 +374,16 @@
                 </Border>
 
                 <Rectangle x:Name="ChipSeparator"
+                           Grid.Column="1"
                            Width="1" Fill="#252525"
                            Margin="7,8,9,8" VerticalAlignment="Stretch"/>
 
-                <ItemsControl x:Name="WindowChips"
+                <ScrollViewer x:Name="WindowChipsScrollViewer"
+                              Grid.Column="2"
+                              HorizontalScrollBarVisibility="Hidden"
+                              VerticalScrollBarVisibility="Disabled"
+                              PreviewMouseWheel="WindowChipsScrollViewer_PreviewMouseWheel">
+                    <ItemsControl x:Name="WindowChips"
                               VerticalAlignment="Center"
                               ClipToBounds="True">
                     <ItemsControl.ItemsPanel>
@@ -426,9 +435,10 @@
                             </Button>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    </ItemsControl>
+                </ScrollViewer>
 
-            </StackPanel>
+            </Grid>
         </Grid>
 
         </DockPanel>

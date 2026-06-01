@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows;
@@ -35,6 +36,7 @@ public partial class TopBarWindow : Window
     private          double             _chipWidth   = 110.0;
     private bool _appBarRegistered;
     private IntPtr _lastExternalForeground;
+    private IntPtr _lastRevealedForeground;
     private IntPtr _clickSnapshot = IntPtr.Zero;
 
     // ── Construction ──────────────────────────────────────────────────────────
@@ -306,7 +308,7 @@ public partial class TopBarWindow : Window
             if (orderedHandles.Add(window.Handle))
                 _windowOrder.Add(window.Handle);
 
-        var windows = _windowOrder.Take(10).Select(h => byHandle[h]).ToList();
+        var windows = _windowOrder.Select(h => byHandle[h]).ToList();
 
         // Structural change: handle set or titles changed — requires full rebuild.
         // IsMinimized-only changes are handled via INPC without ItemsSource rebind.
@@ -346,6 +348,33 @@ public partial class TopBarWindow : Window
         // Always sync active state (foreground window can change between polls)
         foreach (var vm in _chipVms)
             vm.IsActive = vm.Handle == _lastExternalForeground;
+
+        RevealActiveChipIfNeeded();
+    }
+
+    private void WindowChipsScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (WindowChipsScrollViewer.ScrollableWidth <= 0) return;
+        WindowChipsScrollViewer.ScrollToHorizontalOffset(
+            WindowChipsScrollViewer.HorizontalOffset - e.Delta);
+        e.Handled = true;
+    }
+
+    private void RevealActiveChipIfNeeded()
+    {
+        var hwnd = _lastExternalForeground;
+        if (hwnd == _lastRevealedForeground) return;
+
+        var vm = _chipVms.FirstOrDefault(item => item.Handle == hwnd);
+        if (vm is null) return;
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            if (_lastExternalForeground != hwnd) return;
+            if (WindowChips.ItemContainerGenerator.ContainerFromItem(vm) is not FrameworkElement container) return;
+            container.BringIntoView();
+            _lastRevealedForeground = hwnd;
+        }));
     }
 
     // Returns cached icon; fetches and caches on first access per handle
