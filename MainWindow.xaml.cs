@@ -371,33 +371,31 @@ public partial class TopBarWindow : Window
             try { targetProc = Process.GetProcessById((int)targetPid).ProcessName; } catch { }
 
             var fgBefore = GetForegroundWindow();
-            var sw15a = Stopwatch.StartNew();
+            var sw16 = Stopwatch.StartNew();
             bool sfwOk = SetForegroundWindow(hwnd);
             int sfwErr = Marshal.GetLastWin32Error();
-            sw15a.Stop();
-            var fgAfter = GetForegroundWindow();
+            sw16.Stop();
+            var fgAfter      = GetForegroundWindow();
+            bool fgMatch      = fgAfter == hwnd;
+            bool elevMismatch = !sfwOk && sfwErr == 5; // probable elevation/UIPI denial
 
             Debug.WriteLine(
                 $"[ChipClick] hwnd=0x{hwnd:X8} proc={targetProc} " +
                 $"snap=0x{_clickSnapshot:X8} fg_before=0x{fgBefore:X8} " +
                 $"iconic={iconicBefore}→{iconicAfter} " +
-                $"sfw={sfwOk} err={sfwErr} elapsed={sw15a.ElapsedMilliseconds}ms " +
-                $"fg_after=0x{fgAfter:X8}");
+                $"sfw={sfwOk} err={sfwErr} elev={elevMismatch} " +
+                $"elapsed={sw16.ElapsedMilliseconds}ms " +
+                $"fg_after=0x{fgAfter:X8} fg_match={fgMatch}");
 
-            // Build15B: single retry if SFW failed or foreground did not switch
-            if (!sfwOk || fgAfter != hwnd)
+            if (elevMismatch)
             {
-                var retryHwnd = hwnd;
-                Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
-                {
-                    if (!IsWindow(retryHwnd) || GetForegroundWindow() == retryHwnd) return;
-                    bool retrySfw = SetForegroundWindow(retryHwnd);
-                    int retryErr = Marshal.GetLastWin32Error();
-                    Debug.WriteLine(
-                        $"[ChipClick.retry] hwnd=0x{retryHwnd:X8} sfw={retrySfw} err={retryErr} " +
-                        $"fg_after=0x{GetForegroundWindow():X8}");
-                });
+                Debug.WriteLine($"[ChipClick] probable elevation/UIPI denial — retry skipped hwnd=0x{hwnd:X8}");
+                return;
             }
+
+            // Build16: one-shot 50ms retry if SFW failed or foreground did not switch
+            if (!sfwOk || !fgMatch)
+                ScheduleForegroundRetry(hwnd, "[ChipClick.retry]");
         }
         finally
         {
@@ -437,32 +435,30 @@ public partial class TopBarWindow : Window
         try { targetProc = Process.GetProcessById((int)targetPid).ProcessName; } catch { }
 
         var fgBefore = GetForegroundWindow();
-        var sw15a = Stopwatch.StartNew();
+        var sw16 = Stopwatch.StartNew();
         bool sfwOk = SetForegroundWindow(hwnd);
         int sfwErr = Marshal.GetLastWin32Error();
-        sw15a.Stop();
-        var fgAfter = GetForegroundWindow();
+        sw16.Stop();
+        var fgAfter      = GetForegroundWindow();
+        bool fgMatch      = fgAfter == hwnd;
+        bool elevMismatch = !sfwOk && sfwErr == 5; // probable elevation/UIPI denial
 
         Debug.WriteLine(
             $"[ChipRestore] hwnd=0x{hwnd:X8} proc={targetProc} " +
             $"iconic={iconicBefore}→{iconicAfter} " +
-            $"sfw={sfwOk} err={sfwErr} elapsed={sw15a.ElapsedMilliseconds}ms " +
-            $"fg_before=0x{fgBefore:X8} fg_after=0x{fgAfter:X8}");
+            $"sfw={sfwOk} err={sfwErr} elev={elevMismatch} " +
+            $"elapsed={sw16.ElapsedMilliseconds}ms " +
+            $"fg_before=0x{fgBefore:X8} fg_after=0x{fgAfter:X8} fg_match={fgMatch}");
 
-        // Build15B: single retry if SFW failed or foreground did not switch
-        if (!sfwOk || fgAfter != hwnd)
+        if (elevMismatch)
         {
-            var retryHwnd = hwnd;
-            Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
-            {
-                if (!IsWindow(retryHwnd) || GetForegroundWindow() == retryHwnd) return;
-                bool retrySfw = SetForegroundWindow(retryHwnd);
-                int retryErr = Marshal.GetLastWin32Error();
-                Debug.WriteLine(
-                    $"[ChipRestore.retry] hwnd=0x{retryHwnd:X8} sfw={retrySfw} err={retryErr} " +
-                    $"fg_after=0x{GetForegroundWindow():X8}");
-            });
+            Debug.WriteLine($"[ChipRestore] probable elevation/UIPI denial — retry skipped hwnd=0x{hwnd:X8}");
+            return;
         }
+
+        // Build16: one-shot 50ms retry if SFW failed or foreground did not switch
+        if (!sfwOk || !fgMatch)
+            ScheduleForegroundRetry(hwnd, "[ChipRestore.retry]");
     }
 
     private void ChipCloseMenuItem_Click(object sender, RoutedEventArgs e)
@@ -480,6 +476,25 @@ public partial class TopBarWindow : Window
             if (item.Tag is "minimize") item.Visibility = isMinimized ? Visibility.Collapsed : Visibility.Visible;
             else if (item.Tag is "restore")  item.Visibility = isMinimized ? Visibility.Visible  : Visibility.Collapsed;
         }
+    }
+
+    // One-shot 50ms DispatcherTimer retry for SetForegroundWindow; Stop() is the first Tick action.
+    private void ScheduleForegroundRetry(IntPtr hwnd, string tag)
+    {
+        var retryTimer = new DispatcherTimer(DispatcherPriority.Normal)
+            { Interval = TimeSpan.FromMilliseconds(50) };
+        retryTimer.Tick += (_, _) =>
+        {
+            retryTimer.Stop();
+            if (!IsWindow(hwnd) || GetForegroundWindow() == hwnd) return;
+            bool retrySfw     = SetForegroundWindow(hwnd);
+            int  retryErr     = Marshal.GetLastWin32Error();
+            bool retrySuccess = GetForegroundWindow() == hwnd;
+            Debug.WriteLine(
+                $"{tag} hwnd=0x{hwnd:X8} delay=50ms sfw={retrySfw} err={retryErr} " +
+                $"fg_after=0x{GetForegroundWindow():X8} success={retrySuccess}");
+        };
+        retryTimer.Start();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

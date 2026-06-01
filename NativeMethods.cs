@@ -66,11 +66,11 @@ internal static class NativeMethods
     internal static extern bool    IsIconic(IntPtr hWnd);
     [DllImport("user32.dll")]
     internal static extern bool    IsWindow(IntPtr hWnd);
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", SetLastError = true)]
     internal static extern bool    ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")]
     internal static extern bool    PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", SetLastError = true)]
     internal static extern bool    SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")]
     internal static extern IntPtr  GetForegroundWindow();
