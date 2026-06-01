@@ -362,9 +362,42 @@ public partial class TopBarWindow : Window
                 ShowWindow(hwnd, SW_MINIMIZE);
                 return;
             }
-            if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
+            bool iconicBefore = IsIconic(hwnd);
+            if (iconicBefore) ShowWindow(hwnd, SW_RESTORE);
+            bool iconicAfter = IsIconic(hwnd);
+
+            GetWindowThreadProcessId(hwnd, out uint targetPid);
+            string targetProc = "(unknown)";
+            try { targetProc = Process.GetProcessById((int)targetPid).ProcessName; } catch { }
+
+            var fgBefore = GetForegroundWindow();
+            var sw15a = Stopwatch.StartNew();
             bool sfwOk = SetForegroundWindow(hwnd);
-            Debug.WriteLine($"[ChipClick] SFW 0x{hwnd:X8} ok={sfwOk} fg_after=0x{GetForegroundWindow():X8}");
+            int sfwErr = Marshal.GetLastWin32Error();
+            sw15a.Stop();
+            var fgAfter = GetForegroundWindow();
+
+            Debug.WriteLine(
+                $"[ChipClick] hwnd=0x{hwnd:X8} proc={targetProc} " +
+                $"snap=0x{_clickSnapshot:X8} fg_before=0x{fgBefore:X8} " +
+                $"iconic={iconicBefore}→{iconicAfter} " +
+                $"sfw={sfwOk} err={sfwErr} elapsed={sw15a.ElapsedMilliseconds}ms " +
+                $"fg_after=0x{fgAfter:X8}");
+
+            // Build15B: single retry if SFW failed or foreground did not switch
+            if (!sfwOk || fgAfter != hwnd)
+            {
+                var retryHwnd = hwnd;
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+                {
+                    if (!IsWindow(retryHwnd) || GetForegroundWindow() == retryHwnd) return;
+                    bool retrySfw = SetForegroundWindow(retryHwnd);
+                    int retryErr = Marshal.GetLastWin32Error();
+                    Debug.WriteLine(
+                        $"[ChipClick.retry] hwnd=0x{retryHwnd:X8} sfw={retrySfw} err={retryErr} " +
+                        $"fg_after=0x{GetForegroundWindow():X8}");
+                });
+            }
         }
         finally
         {
@@ -394,8 +427,42 @@ public partial class TopBarWindow : Window
     private void ChipRestoreMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (!TryGetContextWindow(sender, out var hwnd)) return;
+
+        bool iconicBefore = IsIconic(hwnd);
         ShowWindow(hwnd, SW_RESTORE);
-        _ = SetForegroundWindow(hwnd);
+        bool iconicAfter = IsIconic(hwnd);
+
+        GetWindowThreadProcessId(hwnd, out uint targetPid);
+        string targetProc = "(unknown)";
+        try { targetProc = Process.GetProcessById((int)targetPid).ProcessName; } catch { }
+
+        var fgBefore = GetForegroundWindow();
+        var sw15a = Stopwatch.StartNew();
+        bool sfwOk = SetForegroundWindow(hwnd);
+        int sfwErr = Marshal.GetLastWin32Error();
+        sw15a.Stop();
+        var fgAfter = GetForegroundWindow();
+
+        Debug.WriteLine(
+            $"[ChipRestore] hwnd=0x{hwnd:X8} proc={targetProc} " +
+            $"iconic={iconicBefore}→{iconicAfter} " +
+            $"sfw={sfwOk} err={sfwErr} elapsed={sw15a.ElapsedMilliseconds}ms " +
+            $"fg_before=0x{fgBefore:X8} fg_after=0x{fgAfter:X8}");
+
+        // Build15B: single retry if SFW failed or foreground did not switch
+        if (!sfwOk || fgAfter != hwnd)
+        {
+            var retryHwnd = hwnd;
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+            {
+                if (!IsWindow(retryHwnd) || GetForegroundWindow() == retryHwnd) return;
+                bool retrySfw = SetForegroundWindow(retryHwnd);
+                int retryErr = Marshal.GetLastWin32Error();
+                Debug.WriteLine(
+                    $"[ChipRestore.retry] hwnd=0x{retryHwnd:X8} sfw={retrySfw} err={retryErr} " +
+                    $"fg_after=0x{GetForegroundWindow():X8}");
+            });
+        }
     }
 
     private void ChipCloseMenuItem_Click(object sender, RoutedEventArgs e)
