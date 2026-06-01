@@ -79,6 +79,7 @@ public partial class TopBarWindow : Window
         CodeButton.IsEnabled = FindVSCode() is not null;
         CenterGrid.SizeChanged += (_, _) => RecalcChipWidth();
         RefreshWindowChips();
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(RefreshWindowChipOverflowFades));
         _windowPollTimer.Start();
     }
 
@@ -361,6 +362,22 @@ public partial class TopBarWindow : Window
         WindowChipsScrollViewer.ScrollToHorizontalOffset(
             WindowChipsScrollViewer.HorizontalOffset - e.Delta);
         e.Handled = true;
+    }
+
+    private void WindowChipsScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        => RefreshWindowChipOverflowFades();
+
+    private void RefreshWindowChipOverflowFades()
+    {
+        if (WindowChipsLeftFade is null || WindowChipsRightFade is null) return;
+
+        WindowChipsLeftFade.Visibility = WindowChipsScrollViewer.HorizontalOffset > 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        WindowChipsRightFade.Visibility =
+            WindowChipsScrollViewer.HorizontalOffset < WindowChipsScrollViewer.ScrollableWidth
+                ? Visibility.Visible
+                : Visibility.Collapsed;
     }
 
     private void ChipButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

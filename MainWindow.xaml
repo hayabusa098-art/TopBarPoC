@@ -378,14 +378,15 @@
                            Width="1" Fill="#252525"
                            Margin="7,8,9,8" VerticalAlignment="Stretch"/>
 
-                <ScrollViewer x:Name="WindowChipsScrollViewer"
-                              Grid.Column="2"
-                              AllowDrop="True"
-                              HorizontalScrollBarVisibility="Hidden"
-                              VerticalScrollBarVisibility="Disabled"
-                              DragOver="WindowChipsScrollViewer_DragOver"
-                              Drop="WindowChipsScrollViewer_Drop"
-                              PreviewMouseWheel="WindowChipsScrollViewer_PreviewMouseWheel">
+                <Grid Grid.Column="2">
+                    <ScrollViewer x:Name="WindowChipsScrollViewer"
+                                  AllowDrop="True"
+                                  HorizontalScrollBarVisibility="Hidden"
+                                  VerticalScrollBarVisibility="Disabled"
+                                  DragOver="WindowChipsScrollViewer_DragOver"
+                                  Drop="WindowChipsScrollViewer_Drop"
+                                  ScrollChanged="WindowChipsScrollViewer_ScrollChanged"
+                                  PreviewMouseWheel="WindowChipsScrollViewer_PreviewMouseWheel">
                     <ItemsControl x:Name="WindowChips"
                               VerticalAlignment="Center"
                               ClipToBounds="True">
@@ -442,7 +443,34 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </ScrollViewer>
+                    </ScrollViewer>
+
+                    <Rectangle x:Name="WindowChipsLeftFade"
+                               Width="12"
+                               HorizontalAlignment="Left"
+                               IsHitTestVisible="False"
+                               Visibility="Collapsed">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                <GradientStop Color="#E608090A" Offset="0"/>
+                                <GradientStop Color="#0008090A" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+
+                    <Rectangle x:Name="WindowChipsRightFade"
+                               Width="12"
+                               HorizontalAlignment="Right"
+                               IsHitTestVisible="False"
+                               Visibility="Collapsed">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                <GradientStop Color="#0008090A" Offset="0"/>
+                                <GradientStop Color="#E608090A" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+                </Grid>
 
             </Grid>
         </Grid>
