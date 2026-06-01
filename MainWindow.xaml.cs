@@ -31,12 +31,15 @@ public partial class TopBarWindow : Window
     private readonly DispatcherTimer _windowPollTimer;
     private          List<WindowChipVm> _chipVms     = [];
     private          List<WindowInfo>   _prevWindows = [];
-    private readonly List<IntPtr>       _windowOrder = [];
+    private static readonly List<IntPtr> _windowOrder = [];
     private readonly Dictionary<IntPtr, ImageSource?> _iconCache = new();
     private          double             _chipWidth   = 110.0;
     private bool _appBarRegistered;
     private IntPtr _lastExternalForeground;
     private IntPtr _lastRevealedForeground;
+    private IntPtr _dragCandidateHwnd;
+    private IntPtr _suppressClickHwnd;
+    private System.Windows.Point _dragStartPoint;
     private IntPtr _clickSnapshot = IntPtr.Zero;
 
     // ── Construction ──────────────────────────────────────────────────────────
@@ -360,6 +363,88 @@ public partial class TopBarWindow : Window
         e.Handled = true;
     }
 
+    private void ChipButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _suppressClickHwnd = IntPtr.Zero;
+        _dragCandidateHwnd = sender is Button { Tag: IntPtr hwnd } ? hwnd : IntPtr.Zero;
+        _dragStartPoint = e.GetPosition(this);
+    }
+
+    private void ChipButton_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        => _dragCandidateHwnd = IntPtr.Zero;
+
+    private void ChipButton_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed ||
+            sender is not Button btn ||
+            btn.Tag is not IntPtr hwnd ||
+            hwnd != _dragCandidateHwnd)
+            return;
+
+        var point = e.GetPosition(this);
+        if (Math.Abs(point.X - _dragStartPoint.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(point.Y - _dragStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance)
+            return;
+
+        _dragCandidateHwnd = IntPtr.Zero;
+        var data = new DataObject("TopBarPoC.WindowChipHwnd", hwnd.ToInt64());
+        if (DragDrop.DoDragDrop(btn, data, DragDropEffects.Move) == DragDropEffects.Move)
+            _suppressClickHwnd = hwnd;
+    }
+
+    private void WindowChipsScrollViewer_Drop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent("TopBarPoC.WindowChipHwnd") ||
+            e.Data.GetData("TopBarPoC.WindowChipHwnd") is not long value)
+            return;
+
+        var hwnd = (IntPtr)value;
+        var target = FindAncestor<Button>(e.OriginalSource as DependencyObject);
+        if (target?.Tag is IntPtr sameHwnd && sameHwnd == hwnd)
+        {
+            e.Effects = DragDropEffects.Move;
+            e.Handled = true;
+            return;
+        }
+
+        if (!_windowOrder.Remove(hwnd)) return;
+
+        if (target?.Tag is IntPtr targetHwnd &&
+            _windowOrder.IndexOf(targetHwnd) is int targetIndex &&
+            targetIndex >= 0)
+        {
+            if (e.GetPosition(target).X >= target.ActualWidth / 2)
+                targetIndex++;
+            _windowOrder.Insert(targetIndex, hwnd);
+        }
+        else
+        {
+            _windowOrder.Add(hwnd);
+        }
+
+        _prevWindows = [];
+        RefreshWindowChips();
+        e.Effects = DragDropEffects.Move;
+        e.Handled = true;
+    }
+
+    private void WindowChipsScrollViewer_DragOver(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent("TopBarPoC.WindowChipHwnd")) return;
+        e.Effects = DragDropEffects.Move;
+        e.Handled = true;
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? source) where T : DependencyObject
+    {
+        while (source is not null)
+        {
+            if (source is T match) return match;
+            source = VisualTreeHelper.GetParent(source);
+        }
+        return null;
+    }
+
     private void RevealActiveChipIfNeeded()
     {
         var hwnd = _lastExternalForeground;
@@ -407,6 +492,11 @@ public partial class TopBarWindow : Window
         try
         {
             if (sender is not Button btn || btn.Tag is not IntPtr hwnd) return;
+            if (hwnd == _suppressClickHwnd)
+            {
+                _suppressClickHwnd = IntPtr.Zero;
+                return;
+            }
             if (!IsWindow(hwnd)) return;
             bool isActive = _clickSnapshot != IntPtr.Zero
                 ? hwnd == _clickSnapshot
