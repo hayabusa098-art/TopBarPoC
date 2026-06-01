@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Win32;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -26,7 +27,7 @@ namespace TopBarPoC;
 public partial class TopBarWindow : Window
 {
     // ── Fields ────────────────────────────────────────────────────────────────
-    private readonly WinFormsScreen  _screen;
+    private          WinFormsScreen  _screen;
     private readonly DispatcherTimer _clock;
     private readonly DispatcherTimer _windowPollTimer;
     private readonly double _barHeightDip;
@@ -36,6 +37,8 @@ public partial class TopBarWindow : Window
     private readonly Dictionary<IntPtr, ImageSource?> _iconCache = new();
     private          double             _chipWidth   = 110.0;
     private bool _appBarRegistered;
+    private bool _displayRefreshQueued;
+    private bool _displaySettingsSubscribed;
     private IntPtr _lastExternalForeground;
     private IntPtr _lastRevealedForeground;
     private IntPtr _dragCandidateHwnd;
@@ -64,7 +67,17 @@ public partial class TopBarWindow : Window
             HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(WndProc);
         };
         Loaded  += OnLoaded;
-        Closing += (_, _) => { _clock?.Stop(); _windowPollTimer?.Stop(); UnregisterAppBar(); };
+        Closing += (_, _) =>
+        {
+            _clock?.Stop();
+            _windowPollTimer?.Stop();
+            if (_displaySettingsSubscribed)
+            {
+                SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
+                _displaySettingsSubscribed = false;
+            }
+            UnregisterAppBar();
+        };
 
         _clock = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _clock.Tick += (_, _) => UpdateClock();
@@ -77,6 +90,11 @@ public partial class TopBarWindow : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         RegisterAppBar();
+        if (!_displaySettingsSubscribed)
+        {
+            SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
+            _displaySettingsSubscribed = true;
+        }
         UpdateClock();
         _clock.Start();
         CodeButton.IsEnabled = FindVSCode() is not null;
@@ -114,6 +132,35 @@ public partial class TopBarWindow : Window
         var hwnd     = new WindowInteropHelper(this).Handle;
         int heightPx = PhysicalBarHeight();
         QueryAndApplyPosition(hwnd, heightPx);
+    }
+
+    private void SystemEvents_DisplaySettingsChanged(object? sender, EventArgs e)
+        => QueueDisplayRefresh();
+
+    private void QueueDisplayRefresh()
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(QueueDisplayRefresh));
+            return;
+        }
+
+        if (_displayRefreshQueued) return;
+        _displayRefreshQueued = true;
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            _displayRefreshQueued = false;
+            if (!IsLoaded || !_appBarRegistered) return;
+
+            _screen = WinFormsScreen.AllScreens.FirstOrDefault(
+                screen => screen.DeviceName.Equals(
+                    _screen.DeviceName, StringComparison.OrdinalIgnoreCase)) ?? _screen;
+
+            Width = _screen.Bounds.Width / GetDpiScale();
+            RefreshPosition();
+            RecalcChipWidth();
+        }));
     }
 
     // ABM_QUERYPOS → clamp height → ABM_SETPOS → SetWindowPos
@@ -169,6 +216,10 @@ public partial class TopBarWindow : Window
             _appBarRegistered = false;
             RegisterAppBar();
         }
+        else if (msg == WM_DISPLAYCHANGE || msg == WM_DPICHANGED)
+        {
+            QueueDisplayRefresh();
+        }
         else if (msg == WM_MOUSEACTIVATE)
         {
             var fg = GetForegroundWindow();
@@ -195,14 +246,14 @@ public partial class TopBarWindow : Window
         else if (msg == WM_WINDOWPOSCHANGING)
         {
             var wpos = Marshal.PtrToStructure<WINDOWPOS>(lParam);
-            int  expectedTop = _screen.Bounds.Y;
+            int expectedTop  = _screen.Bounds.Top;
+            int displacedTop = expectedTop + PhysicalBarHeight();
             bool isNoMove    = (wpos.flags & 0x0002u) != 0; // SWP_NOMOVE
             // Narrow fix: corrects only the known obstacle-displacement case where the Shell
             // pushes the bar down by exactly its own height during auto-hide state changes.
             if (_appBarRegistered
                 && !isNoMove
-                && expectedTop == _screen.Bounds.Y
-                && wpos.y == PhysicalBarHeight())
+                && wpos.y == displacedTop)
             {
                 Debug.WriteLine($"[WM_WINDOWPOSCHANGING] obstacle correction: y={wpos.y}→{expectedTop}");
                 wpos.y = expectedTop;
