@@ -74,6 +74,8 @@ internal static class NativeMethods
     internal static extern bool    SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")]
     internal static extern IntPtr  GetForegroundWindow();
+    [DllImport("dwmapi.dll")]
+    internal static extern int     DwmGetWindowAttribute(IntPtr hWnd, uint dwAttribute, out uint pvAttribute, uint cbAttribute);
 
     // ── Class icon (x64 / x86 dual import; callers use GetClassLongPtrSafe) ──
     [DllImport("user32.dll", EntryPoint = "GetClassLongPtrW")]
@@ -107,6 +109,7 @@ internal static class NativeMethods
     internal const uint WM_CLOSE          = 0x0010;
     internal const uint WM_GETICON        = 0x007F;
     internal const uint SMTO_ABORTIFHUNG  = 0x0002;
+    internal const uint DWMWA_CLOAKED     = 14;
     internal const int  ICON_SMALL        = 0;
     internal const int  ICON_SMALL2       = 2;
     internal const int  GCLP_HICONSM     = -34;

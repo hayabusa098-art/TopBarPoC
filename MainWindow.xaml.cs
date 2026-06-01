@@ -200,6 +200,7 @@ public partial class TopBarWindow : Window
 
             GetWindowThreadProcessId(hWnd, out uint pid);
             if (pid == selfPid) return true;
+            if (IsCloaked(hWnd) || IsDeniedSystemProcess(pid)) return true;
 
             int  exStyle      = GetWindowLong(hWnd, GWL_EXSTYLE);
             bool isToolWindow = (exStyle & WS_EX_TOOLWINDOW) != 0;
@@ -215,6 +216,24 @@ public partial class TopBarWindow : Window
         };
         EnumWindows(callback, IntPtr.Zero);
         return result;
+    }
+
+    private static bool IsCloaked(IntPtr hwnd)
+    {
+        uint cloaked = 0;
+        return DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, out cloaked, sizeof(uint)) == 0 &&
+               cloaked != 0;
+    }
+
+    private static bool IsDeniedSystemProcess(uint pid)
+    {
+        try
+        {
+            string processName = Process.GetProcessById((int)pid).ProcessName;
+            return processName.Equals("TextInputHost", StringComparison.OrdinalIgnoreCase) ||
+                   processName.Equals("dwm", StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
     }
 
     private void RefreshWindowChips()
