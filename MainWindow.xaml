@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         WindowStyle="None"
-        AllowsTransparency="False"
+        AllowsTransparency="True"
         ResizeMode="NoResize"
         Topmost="True"
         ShowInTaskbar="False"
@@ -13,42 +13,50 @@
         Height="32"
         Width="1920"
         Title="TopBar"
-        Background="#111111">
+        Background="Transparent">
     <Window.Resources>
 
         <Style x:Key="LauncherButtonStyle" TargetType="Button">
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#707070"/>
+            <Setter Property="Foreground"      Value="#727272"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FontFamily"      Value="Segoe UI"/>
-            <Setter Property="FontSize"        Value="11"/>
-            <Setter Property="Padding"         Value="10,0"/>
-            <Setter Property="Height"          Value="32"/>
+            <Setter Property="Padding"         Value="0"/>
+            <Setter Property="Margin"          Value="1,0"/>
+            <Setter Property="Width"           Value="28"/>
+            <Setter Property="Height"          Value="24"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="border"
                                 Background="{TemplateBinding Background}"
+                                CornerRadius="7"
                                 Padding="{TemplateBinding Padding}">
-                            <TextBlock x:Name="label"
-                                       Text="{TemplateBinding Content}"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Foreground="{TemplateBinding Foreground}"
-                                       FontFamily="{TemplateBinding FontFamily}"
-                                       FontSize="{TemplateBinding FontSize}"/>
+                            <Grid>
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                                <Ellipse x:Name="hoverDot"
+                                         Width="3" Height="3"
+                                         Fill="#7899A2"
+                                         Stroke="#A6C0C7"
+                                         StrokeThickness="0.5"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Bottom"
+                                         Margin="0,0,0,2"
+                                         Visibility="Collapsed"/>
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#1E1E1E"/>
-                                <Setter TargetName="label"  Property="Foreground" Value="#D0D0D0"/>
+                                <Setter TargetName="border" Property="Background" Value="#181818"/>
+                                <Setter TargetName="hoverDot" Property="Visibility" Value="Visible"/>
+                                <Setter Property="Foreground" Value="#D0D0D0"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#2A2A2A"/>
+                                <Setter TargetName="border" Property="Background" Value="#242424"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="label" Property="Foreground" Value="#3A3A3A"/>
+                                <Setter Property="Foreground" Value="#303030"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -57,20 +65,23 @@
         </Style>
 
         <Style x:Key="ChipButtonStyle" TargetType="Button">
-            <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#909090"/>
+            <Setter Property="Background"      Value="#121212"/>
+            <Setter Property="Foreground"      Value="#8E8E8E"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontFamily"      Value="Segoe UI"/>
             <Setter Property="FontSize"        Value="11"/>
-            <Setter Property="Padding"         Value="9,0"/>
+            <Setter Property="Padding"         Value="8,0"/>
             <Setter Property="MaxWidth"        Value="130"/>
-            <Setter Property="Height"          Value="32"/>
+            <Setter Property="Height"          Value="24"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="border"
                                 Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10"
                                 Padding="{TemplateBinding Padding}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -80,7 +91,7 @@
                                 <!-- icon column: collapses automatically when Source is null -->
                                 <Image Grid.Column="0"
                                        Source="{Binding Icon}"
-                                       Width="14" Height="14"
+                                       Width="13" Height="13"
                                        Margin="0,0,5,0"
                                        VerticalAlignment="Center"
                                        RenderOptions.BitmapScalingMode="HighQuality"
@@ -104,16 +115,31 @@
                                            Foreground="{TemplateBinding Foreground}"
                                            FontFamily="{TemplateBinding FontFamily}"
                                            FontSize="{TemplateBinding FontSize}"/>
+                                <Ellipse x:Name="activeDot"
+                                         Grid.ColumnSpan="2"
+                                         Width="3" Height="3"
+                                         Fill="#7899A2"
+                                         Stroke="#A6C0C7"
+                                         StrokeThickness="0.5"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Bottom"
+                                         Margin="0,0,0,2"
+                                         Visibility="Collapsed"/>
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#1E1E1E"/>
-                                <Setter TargetName="label"  Property="Foreground" Value="#D0D0D0"/>
+                                <Setter TargetName="border" Property="Background" Value="#1C1C1C"/>
+                                <Setter TargetName="label"  Property="Foreground" Value="#D4D4D4"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#2A2A2A"/>
+                                <Setter TargetName="border" Property="Background" Value="#282828"/>
                             </Trigger>
+                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                <Setter TargetName="activeDot" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#2C3639"/>
+                                <Setter TargetName="border" Property="BorderThickness" Value="1"/>
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -132,39 +158,72 @@
         Trade-off: center point is (barWidth - rightGroupWidth) / 2 from left, not barWidth / 2.
         On ≥1080 px monitors the ~77 px offset is not noticeable. Right group safety is guaranteed.
     -->
-    <DockPanel LastChildFill="True">
+    <Border Margin="4,2"
+            Padding="3,0,2,0"
+            BorderThickness="1"
+            CornerRadius="13">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                <GradientStop Color="#101112" Offset="0"/>
+                <GradientStop Color="#0C0D0E" Offset="0.52"/>
+                <GradientStop Color="#08090A" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.Background>
+        <Border.BorderBrush>
+            <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                <GradientStop Color="#343638" Offset="0"/>
+                <GradientStop Color="#222527" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.BorderBrush>
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="8"
+                              ShadowDepth="0"
+                              Color="#000000"
+                              Opacity="0.38"/>
+        </Border.Effect>
+        <Border BorderBrush="#1D2224"
+                BorderThickness="1"
+                CornerRadius="11">
+        <DockPanel LastChildFill="True">
 
         <!-- ── RIGHT GROUP ── date / time / exit (docked first = always visible) ── -->
         <StackPanel DockPanel.Dock="Right"
                     Orientation="Horizontal"
-                    VerticalAlignment="Center">
+                    VerticalAlignment="Center"
+                    Margin="0,0,2,0">
+
+            <Rectangle Width="1" Height="12"
+                       Fill="#1D2223"
+                       Margin="7,0,2,0"
+                       VerticalAlignment="Center"/>
 
             <StackPanel Orientation="Horizontal"
                         VerticalAlignment="Center"
                         Margin="12,0,8,0">
                 <TextBlock x:Name="DateText"
-                           Foreground="#606060"
+                           Foreground="#505254"
                            FontFamily="Segoe UI"
-                           FontSize="11"
+                           FontSize="10"
                            VerticalAlignment="Center"
-                           Margin="0,0,7,0"/>
+                           Margin="0,0,8,0"/>
                 <TextBlock x:Name="ClockText"
-                           Foreground="#D0D0D0"
+                           Foreground="#CED0D1"
                            FontFamily="Segoe UI"
                            FontSize="12"
+                           FontWeight="SemiBold"
                            VerticalAlignment="Center"/>
             </StackPanel>
 
             <Button x:Name="ExitButton"
                     Content="&#xD7;"
                     Click="ExitButton_Click"
-                    Width="32"
-                    Height="32"
+                    Width="28"
+                    Height="24"
                     Cursor="Hand">
                 <Button.Style>
                     <Style TargetType="Button">
                         <Setter Property="Background" Value="Transparent"/>
-                        <Setter Property="Foreground" Value="#666666"/>
+                        <Setter Property="Foreground" Value="#585B5D"/>
                         <Setter Property="BorderThickness" Value="0"/>
                         <Setter Property="FontSize" Value="16"/>
                         <Setter Property="Template">
@@ -172,7 +231,8 @@
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="border"
                                             Background="{TemplateBinding Background}"
-                                            Width="32" Height="32">
+                                            Width="28" Height="24"
+                                            CornerRadius="7">
                                         <TextBlock x:Name="label"
                                                    Text="{TemplateBinding Content}"
                                                    HorizontalAlignment="Center"
@@ -206,21 +266,65 @@
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center">
 
-                <Button x:Name="FilesButton"
-                        Content="Files" ToolTip="Files"
-                        Style="{StaticResource LauncherButtonStyle}"
-                        Click="FilesButton_Click"/>
-                <Button x:Name="WebButton"
-                        Content="Web" ToolTip="Web"
-                        Style="{StaticResource LauncherButtonStyle}"
-                        Click="WebButton_Click"/>
-                <Button x:Name="CodeButton"
-                        Content="Code" ToolTip="VS Code"
-                        Style="{StaticResource LauncherButtonStyle}"
-                        Click="CodeButton_Click"/>
+                <Border BorderBrush="#293033"
+                        BorderThickness="1"
+                        CornerRadius="9"
+                        Padding="1,0">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                            <GradientStop Color="#15191A" Offset="0"/>
+                            <GradientStop Color="#0E1112" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="FilesButton"
+                                ToolTip="Files"
+                                Style="{StaticResource LauncherButtonStyle}"
+                                Click="FilesButton_Click">
+                            <Viewbox Width="14" Height="14">
+                                <Path Data="M 1,4 L 6,4 L 7.5,5.5 L 15,5.5 L 15,13 L 1,13 Z"
+                                      Fill="Transparent"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      StrokeThickness="1.2"
+                                      StrokeLineJoin="Round"/>
+                            </Viewbox>
+                        </Button>
+                        <Button x:Name="WebButton"
+                                ToolTip="Web"
+                                Style="{StaticResource LauncherButtonStyle}"
+                                Click="WebButton_Click">
+                            <Viewbox Width="14" Height="14">
+                                <Grid Width="16" Height="16">
+                                    <Ellipse Margin="1"
+                                             Fill="Transparent"
+                                             Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                             StrokeThickness="1.2"/>
+                                    <Path Data="M 8,1.5 C 5.5,4.2 5.5,11.8 8,14.5 M 8,1.5 C 10.5,4.2 10.5,11.8 8,14.5 M 1.5,8 L 14.5,8"
+                                          Fill="Transparent"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          StrokeThickness="1.1"/>
+                                </Grid>
+                            </Viewbox>
+                        </Button>
+                        <Button x:Name="CodeButton"
+                                ToolTip="VS Code"
+                                Style="{StaticResource LauncherButtonStyle}"
+                                Click="CodeButton_Click">
+                            <Viewbox Width="14" Height="14">
+                                <Path Data="M 6,3 L 2,8 L 6,13 M 10,3 L 14,8 L 10,13"
+                                      Fill="Transparent"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      StrokeThickness="1.4"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"/>
+                            </Viewbox>
+                        </Button>
+                    </StackPanel>
+                </Border>
 
-                <Rectangle Width="1" Fill="#333333"
-                           Margin="2,8,2,8" VerticalAlignment="Stretch"/>
+                <Rectangle Width="1" Fill="#252525"
+                           Margin="7,8,9,8" VerticalAlignment="Stretch"/>
 
                 <ItemsControl x:Name="WindowChips"
                               VerticalAlignment="Center"
@@ -235,18 +339,18 @@
                             <Button Content="{Binding Title}"
                                     Tag="{Binding Handle}"
                                     ToolTip="{Binding Title}"
-                                    Margin="0,0,1,0"
+                                    Margin="0,0,4,0"
                                     Click="ChipButton_Click">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource ChipButtonStyle}">
                                         <Style.Triggers>
                                             <!-- IsMinimized first; IsActive overrides if both true -->
                                             <DataTrigger Binding="{Binding IsMinimized}" Value="True">
-                                                <Setter Property="Foreground" Value="#505050"/>
+                                                <Setter Property="Foreground" Value="#4E4E4E"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                <Setter Property="Background" Value="#252525"/>
-                                                <Setter Property="Foreground" Value="#E0E0E0"/>
+                                                <Setter Property="Background" Value="#222222"/>
+                                                <Setter Property="Foreground" Value="#E2E2E2"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -259,5 +363,7 @@
             </StackPanel>
         </Grid>
 
-    </DockPanel>
+        </DockPanel>
+        </Border>
+    </Border>
 </Window>
