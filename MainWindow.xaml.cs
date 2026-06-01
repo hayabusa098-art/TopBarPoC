@@ -34,6 +34,7 @@ public partial class TopBarWindow : Window
     private          double             _chipWidth   = 110.0;
     private bool _appBarRegistered;
     private IntPtr _lastExternalForeground;
+    private IntPtr _clickSnapshot = IntPtr.Zero;
 
     // ── Construction ──────────────────────────────────────────────────────────
     public TopBarWindow(WinFormsScreen screen)
@@ -159,6 +160,19 @@ public partial class TopBarWindow : Window
             // Explorer restarted; shell lost our registration — re-register
             _appBarRegistered = false;
             RegisterAppBar();
+        }
+        else if (msg == WM_MOUSEACTIVATE)
+        {
+            var fg = GetForegroundWindow();
+            if (fg != hwnd)
+            {
+                _lastExternalForeground = fg;
+                _clickSnapshot = fg;
+            }
+            else
+            {
+                _clickSnapshot = IntPtr.Zero;
+            }
         }
         else if (msg == WM_ACTIVATE && _appBarRegistered)
         {
@@ -336,15 +350,26 @@ public partial class TopBarWindow : Window
     // Taskbar-style toggle: clicking the active window minimizes it; other chips restore/activate.
     private void ChipButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button btn || btn.Tag is not IntPtr hwnd) return;
-        if (!IsWindow(hwnd)) return;
-        if (btn.DataContext is WindowChipVm { IsActive: true })
+        try
         {
-            ShowWindow(hwnd, SW_MINIMIZE);
-            return;
+            if (sender is not Button btn || btn.Tag is not IntPtr hwnd) return;
+            if (!IsWindow(hwnd)) return;
+            bool isActive = _clickSnapshot != IntPtr.Zero
+                ? hwnd == _clickSnapshot
+                : btn.DataContext is WindowChipVm { IsActive: true };
+            if (isActive)
+            {
+                ShowWindow(hwnd, SW_MINIMIZE);
+                return;
+            }
+            if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
+            bool sfwOk = SetForegroundWindow(hwnd);
+            Debug.WriteLine($"[ChipClick] SFW 0x{hwnd:X8} ok={sfwOk} fg_after=0x{GetForegroundWindow():X8}");
         }
-        if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
-        _ = SetForegroundWindow(hwnd); // may fail under Windows focus-stealing restrictions; silent fail is acceptable for MVP
+        finally
+        {
+            _clickSnapshot = IntPtr.Zero;
+        }
     }
 
     private static bool TryGetContextWindow(object sender, out IntPtr hwnd)
