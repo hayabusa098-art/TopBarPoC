@@ -244,12 +244,16 @@ public partial class TopBarWindow : Window
             _lastExternalForeground = foreground;
         var windows = EnumerateWindows();
 
-        bool listChanged = windows.Count != _prevWindows.Count ||
-                           Enumerable.Range(0, windows.Count)
-                                     .Any(i => windows[i] != _prevWindows[i]);
+        // Structural change: handle set or titles changed — requires full rebuild.
+        // IsMinimized-only changes are handled via INPC without ItemsSource rebind.
+        bool structuralChange =
+            windows.Count != _prevWindows.Count ||
+            Enumerable.Range(0, windows.Count)
+                      .Any(i => windows[i].Handle != _prevWindows[i].Handle ||
+                                windows[i].Title  != _prevWindows[i].Title);
         _prevWindows = windows;
 
-        if (listChanged)
+        if (structuralChange)
         {
             // Drop cache entries for handles no longer visible
             var current = new HashSet<IntPtr>(windows.Select(w => w.Handle));
@@ -260,10 +264,17 @@ public partial class TopBarWindow : Window
             {
                 Handle      = w.Handle,
                 Title       = w.Title,
-                IsMinimized = w.IsMinimized,
                 Icon        = GetCachedIcon(w.Handle),
             }).ToList();
             WindowChips.ItemsSource = _chipVms;
+        }
+
+        // Sync IsMinimized via INPC (no ItemsSource rebind needed)
+        var byHandle = windows.ToDictionary(w => w.Handle);
+        foreach (var vm in _chipVms)
+        {
+            if (byHandle.TryGetValue(vm.Handle, out var info))
+                vm.IsMinimized = info.IsMinimized;
         }
 
         // Always sync active state (foreground window can change between polls)

@@ -7,10 +7,21 @@ internal readonly record struct WindowInfo(IntPtr Handle, string Title, bool IsM
 
 internal sealed class WindowChipVm : INotifyPropertyChanged
 {
-    public required IntPtr       Handle      { get; init; }
-    public required string       Title       { get; init; }
-    public required bool         IsMinimized { get; init; }
-    public          ImageSource? Icon        { get; init; }
+    public required IntPtr       Handle { get; init; }
+    public required string       Title  { get; init; }
+    public          ImageSource? Icon   { get; init; }
+
+    private bool _isMinimized;
+    public bool IsMinimized
+    {
+        get => _isMinimized;
+        set
+        {
+            if (_isMinimized == value) return;
+            _isMinimized = value;
+            PropertyChanged?.Invoke(this, _isMinimizedPcea);
+        }
+    }
 
     private bool _isActive;
     public bool IsActive
@@ -25,5 +36,6 @@ internal sealed class WindowChipVm : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
-    private static readonly PropertyChangedEventArgs _isActivePcea = new(nameof(IsActive));
+    private static readonly PropertyChangedEventArgs _isMinimizedPcea = new(nameof(IsMinimized));
+    private static readonly PropertyChangedEventArgs _isActivePcea    = new(nameof(IsActive));
 }

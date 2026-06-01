@@ -71,7 +71,8 @@
             <Setter Property="FontFamily"      Value="Segoe UI"/>
             <Setter Property="FontSize"        Value="11"/>
             <Setter Property="Padding"         Value="8,0"/>
-            <Setter Property="MaxWidth"        Value="130"/>
+            <Setter Property="MinWidth"        Value="56"/>
+            <Setter Property="MaxWidth"        Value="110"/>
             <Setter Property="Height"          Value="24"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
@@ -385,7 +386,7 @@
                             <Button Content="{Binding Title}"
                                     Tag="{Binding Handle}"
                                     ToolTip="{Binding Title}"
-                                    Margin="0,0,4,0"
+                                    Margin="0,0,3,0"
                                     ContextMenuService.Placement="Bottom"
                                     Click="ChipButton_Click">
                                 <Button.ContextMenu>
