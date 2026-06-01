@@ -30,6 +30,7 @@ public partial class TopBarWindow : Window
     private readonly DispatcherTimer _windowPollTimer;
     private          List<WindowChipVm> _chipVms     = [];
     private          List<WindowInfo>   _prevWindows = [];
+    private readonly List<IntPtr>       _windowOrder = [];
     private readonly Dictionary<IntPtr, ImageSource?> _iconCache = new();
     private          double             _chipWidth   = 110.0;
     private bool _appBarRegistered;
@@ -242,8 +243,6 @@ public partial class TopBarWindow : Window
 
         EnumWindowsProc callback = (hWnd, _) =>
         {
-            if (result.Count >= 10) return false; // stop at cap
-
             bool isMinimized = IsIconic(hWnd);
             if ((!IsWindowVisible(hWnd) && !isMinimized) || hWnd == shellWnd) return true;
 
@@ -298,7 +297,16 @@ public partial class TopBarWindow : Window
         var selfHwnd   = new WindowInteropHelper(this).Handle;
         if (foreground != selfHwnd)
             _lastExternalForeground = foreground;
-        var windows = EnumerateWindows();
+        var enumeratedWindows = EnumerateWindows();
+        var byHandle = enumeratedWindows.ToDictionary(w => w.Handle);
+
+        _windowOrder.RemoveAll(h => !byHandle.ContainsKey(h));
+        var orderedHandles = new HashSet<IntPtr>(_windowOrder);
+        foreach (var window in enumeratedWindows)
+            if (orderedHandles.Add(window.Handle))
+                _windowOrder.Add(window.Handle);
+
+        var windows = _windowOrder.Take(10).Select(h => byHandle[h]).ToList();
 
         // Structural change: handle set or titles changed — requires full rebuild.
         // IsMinimized-only changes are handled via INPC without ItemsSource rebind.
@@ -310,8 +318,8 @@ public partial class TopBarWindow : Window
 
         if (structuralChange)
         {
-            // Drop cache entries for handles no longer visible
-            var current = new HashSet<IntPtr>(windows.Select(w => w.Handle));
+            // Drop cache entries for handles no longer eligible
+            var current = new HashSet<IntPtr>(enumeratedWindows.Select(w => w.Handle));
             foreach (var stale in _iconCache.Keys.Where(k => !current.Contains(k)).ToList())
                 _iconCache.Remove(stale);
 
@@ -326,7 +334,6 @@ public partial class TopBarWindow : Window
         }
 
         // Sync IsMinimized and Title via INPC (no ItemsSource rebind needed)
-        var byHandle = windows.ToDictionary(w => w.Handle);
         foreach (var vm in _chipVms)
         {
             if (byHandle.TryGetValue(vm.Handle, out var info))
