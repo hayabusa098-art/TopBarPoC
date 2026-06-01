@@ -16,7 +16,7 @@ using WinFormsScreen = System.Windows.Forms.Screen;
 
 namespace TopBarPoC;
 
-// Bar height is 32 DIP (device-independent pixels). Physical pixels = 32 * dpiScale per monitor.
+// Bar height is configured in DIPs (device-independent pixels). Physical pixels = DIP height * dpiScale per monitor.
 // Known limitations (out of MVP scope):
 //   - Monitor hot-plug / disconnect after startup is not handled; restart required.
 //   - Runtime DPI change (display scaling slider) is not handled; restart required.
@@ -29,6 +29,7 @@ public partial class TopBarWindow : Window
     private readonly WinFormsScreen  _screen;
     private readonly DispatcherTimer _clock;
     private readonly DispatcherTimer _windowPollTimer;
+    private readonly double _barHeightDip;
     private          List<WindowChipVm> _chipVms     = [];
     private          List<WindowInfo>   _prevWindows = [];
     private static readonly List<IntPtr> _windowOrder = [];
@@ -43,10 +44,12 @@ public partial class TopBarWindow : Window
     private IntPtr _clickSnapshot = IntPtr.Zero;
 
     // ── Construction ──────────────────────────────────────────────────────────
-    public TopBarWindow(WinFormsScreen screen)
+    public TopBarWindow(WinFormsScreen screen, double barHeightDip)
     {
-        _screen = screen;
+        _screen       = screen;
+        _barHeightDip = barHeightDip;
         InitializeComponent();
+        Height = _barHeightDip;
 
         // Hold off-screen until RegisterAppBar() positions us via ABM_SETPOS.
         // Placing the window at its target position before ABM_NEW causes ABM_QUERYPOS
@@ -118,7 +121,7 @@ public partial class TopBarWindow : Window
     {
         var data = BuildAppBarData(hwnd, heightPx);
         SHAppBarMessage(ABM_QUERYPOS, ref data);
-        data.rc.Bottom = data.rc.Top + heightPx; // maintain 32 DIP regardless of shell adjustment
+        data.rc.Bottom = data.rc.Top + heightPx; // maintain configured DIP height regardless of shell adjustment
         SHAppBarMessage(ABM_SETPOS,   ref data);
         SetWindowPos(hwnd, IntPtr.Zero,
             data.rc.Left, data.rc.Top,
@@ -684,7 +687,7 @@ public partial class TopBarWindow : Window
         }
     };
 
-    private int PhysicalBarHeight() => (int)Math.Round(32 * GetDpiScale()); // 32 DIP → physical px
+    private int PhysicalBarHeight() => (int)Math.Round(_barHeightDip * GetDpiScale());
 
     private double GetDpiScale()
     {

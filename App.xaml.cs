@@ -13,7 +13,14 @@ public partial class App : Application
             ? [ps]
             : WinFormsScreen.AllScreens;
 
+        double barHeightDip = settings.DensityPreset switch
+        {
+            "comfortable" => 36,
+            "large"       => 40,
+            _             => 32,
+        };
+
         foreach (var screen in screens)
-            new TopBarWindow(screen).Show();
+            new TopBarWindow(screen, barHeightDip).Show();
     }
 }

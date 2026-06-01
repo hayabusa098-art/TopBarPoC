@@ -6,7 +6,8 @@ namespace TopBarPoC;
 
 internal sealed record AppSettings
 {
-    public string MonitorMode { get; init; } = "all";
+    public string MonitorMode   { get; init; } = "all";
+    public string DensityPreset { get; init; } = "compact";
 }
 
 internal static class SettingsService
@@ -22,7 +23,7 @@ internal static class SettingsService
         WriteIndented               = true,
     };
 
-    // Returns default settings on missing file, invalid JSON, or unrecognized monitorMode.
+    // Returns default settings on missing file, invalid JSON, or unrecognized values.
     public static AppSettings Load()
     {
         try
@@ -31,8 +32,16 @@ internal static class SettingsService
             var s = JsonSerializer.Deserialize<AppSettings>(
                 File.ReadAllText(SettingsPath), JsonOptions);
             if (s is not null)
-                s = s with { MonitorMode = s.MonitorMode.ToLowerInvariant() };
-            return s is { MonitorMode: "all" or "primary" } ? s : new();
+                s = s with
+                {
+                    MonitorMode   = s.MonitorMode.ToLowerInvariant(),
+                    DensityPreset = s.DensityPreset.ToLowerInvariant(),
+                };
+            return s is
+            {
+                MonitorMode:   "all" or "primary",
+                DensityPreset: "compact" or "comfortable" or "large",
+            } ? s : new();
         }
         catch { return new(); }
     }
