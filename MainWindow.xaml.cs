@@ -477,8 +477,9 @@ public partial class TopBarWindow : Window
             int  exStyle      = GetWindowLong(hWnd, GWL_EXSTYLE);
             bool isToolWindow = (exStyle & WS_EX_TOOLWINDOW) != 0;
             bool isAppWindow  = (exStyle & WS_EX_APPWINDOW)  != 0;
+            bool isNoActivate = (exStyle & WS_EX_NOACTIVATE) != 0;
             bool hasOwner     = NativeMethods.GetWindow(hWnd, GW_OWNER) != IntPtr.Zero;
-            if (!isAppWindow && (hasOwner || isToolWindow)) return true;
+            if (!isAppWindow && (hasOwner || isToolWindow || isNoActivate)) return true;
 
             GetWindowThreadProcessId(hWnd, out uint pid);
             if (pid == selfPid) return true;
@@ -492,6 +493,14 @@ public partial class TopBarWindow : Window
 
             var sb = new StringBuilder(textLen + 1);
             GetWindowText(hWnd, sb, sb.Capacity);
+            string title = sb.ToString();
+            if (string.IsNullOrWhiteSpace(title)) return true;
+
+            Debug.WriteLine(
+                $"[WindowEnum] include hwnd=0x{hWnd:X8} proc={pid} owner={hasOwner} " +
+                $"app={isAppWindow} tool={isToolWindow} noActivate={isNoActivate} " +
+                $"iconic={isMinimized} title=\"{title}\"");
+
             if (!appIdentityCache.TryGetValue(pid, out var identity))
             {
                 identity = ResolveAppIdentity(pid, hWnd);
@@ -499,7 +508,7 @@ public partial class TopBarWindow : Window
                     appIdentityCache[pid] = identity;
             }
             var (appKey, appLabel) = identity;
-            result.Add(new WindowInfo(hWnd, sb.ToString(), isMinimized, appKey, appLabel));
+            result.Add(new WindowInfo(hWnd, title, isMinimized, appKey, appLabel));
             return true;
         };
         EnumWindows(callback, IntPtr.Zero);
@@ -963,14 +972,55 @@ public partial class TopBarWindow : Window
     private static bool TryGetContextWindow(object sender, out IntPtr hwnd)
     {
         hwnd = IntPtr.Zero;
-        if (sender is not MenuItem item ||
-            ContextMenu.ItemsControlFromItemContainer(item) is not ContextMenu menu ||
-            menu.PlacementTarget is not Button btn ||
-            btn.Tag is not IntPtr target ||
-            !IsWindow(target))
+        if (sender is not MenuItem item)
+        {
+            const string message = "[ContextWindow] target resolution failed: sender not MenuItem";
+            Debug.WriteLine(message);
             return false;
+        }
+        if (ContextMenu.ItemsControlFromItemContainer(item) is not ContextMenu menu)
+        {
+            const string message = "[ContextWindow] target resolution failed: no ContextMenu";
+            Debug.WriteLine(message);
+            return false;
+        }
+        if (menu.PlacementTarget is not Button btn)
+        {
+            const string message = "[ContextWindow] target resolution failed: no PlacementTarget Button";
+            Debug.WriteLine(message);
+            return false;
+        }
+        if (btn.Tag is not IntPtr target)
+        {
+            const string message = "[ContextWindow] target resolution failed: no IntPtr target";
+            Debug.WriteLine(message);
+            return false;
+        }
+        if (!IsWindow(target))
+        {
+            string message = $"[ContextWindow] target resolution failed: !IsWindow(target) hwnd=0x{target:X}";
+            Debug.WriteLine(message);
+            return false;
+        }
         hwnd = target;
         return true;
+    }
+
+    private static bool TryCloseWindow(IntPtr hwnd, string source)
+    {
+        bool isWindow = hwnd != IntPtr.Zero && IsWindow(hwnd);
+        if (!isWindow)
+        {
+            string invalidWindowMessage = $"{source} hwnd=0x{hwnd:X} isWindow={isWindow} result=False win32Error=0";
+            Debug.WriteLine(invalidWindowMessage);
+            return false;
+        }
+
+        bool result = PostMessage(hwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+        int win32Error = result ? 0 : Marshal.GetLastWin32Error();
+        string postMessageResult = $"{source} hwnd=0x{hwnd:X} isWindow={isWindow} result={result} win32Error={win32Error}";
+        Debug.WriteLine(postMessageResult);
+        return result;
     }
 
     private void OpenGroupedWindowMenu(Button button, WindowChipVm group)
@@ -1046,14 +1096,11 @@ public partial class TopBarWindow : Window
         e.Handled = true;
         if (sender is not Button { Tag: IntPtr hwnd } button) return;
 
-        if (FindAncestor<MenuItem>(button) is not MenuItem item ||
-            ContextMenu.ItemsControlFromItemContainer(item) is not ContextMenu menu)
-            return;
+        if (FindAncestor<MenuItem>(button) is MenuItem item &&
+            ContextMenu.ItemsControlFromItemContainer(item) is ContextMenu menu)
+            menu.IsOpen = false;
 
-        menu.IsOpen = false;
-
-        if (IsWindow(hwnd))
-            PostMessage(hwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+        TryCloseWindow(hwnd, "[GroupClose]");
     }
 
     private void CycleGroupedWindowFocus(WindowChipVm group)
@@ -1209,7 +1256,7 @@ public partial class TopBarWindow : Window
     private void ChipCloseMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (TryGetContextWindow(sender, out var hwnd))
-            PostMessage(hwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+            TryCloseWindow(hwnd, "[ChipClose]");
     }
 
     private void ChipContextMenu_Opened(object sender, RoutedEventArgs e)

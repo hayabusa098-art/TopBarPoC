@@ -76,7 +76,7 @@ internal static class NativeMethods
     internal static extern bool    IsWindow(IntPtr hWnd);
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern bool    ShowWindow(IntPtr hWnd, int nCmdShow);
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", SetLastError = true)]
     internal static extern bool    PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern bool    SetForegroundWindow(IntPtr hWnd);
@@ -114,7 +114,7 @@ internal static class NativeMethods
     internal const int  WM_MOUSEACTIVATE = 0x0021, WM_ACTIVATE = 0x0006, WM_WINDOWPOSCHANGED = 0x0047, WM_WINDOWPOSCHANGING = 0x0046;
     internal const int  WM_DISPLAYCHANGE = 0x007E, WM_DPICHANGED = 0x02E0, WM_SETTINGCHANGE = 0x001A;
     internal const int  GWL_EXSTYLE       = -20;
-    internal const int  WS_EX_TOOLWINDOW  = 0x00000080, WS_EX_APPWINDOW = 0x00040000;
+    internal const int  WS_EX_TOOLWINDOW  = 0x00000080, WS_EX_APPWINDOW = 0x00040000, WS_EX_NOACTIVATE = 0x08000000;
     internal const uint GW_OWNER          = 4;
     internal const int  SW_MINIMIZE       = 6, SW_RESTORE = 9;
     internal const uint WM_CLOSE          = 0x0010;
