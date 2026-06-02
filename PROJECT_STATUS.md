@@ -1,93 +1,90 @@
-\# TopBar Project Status
+# TopBar Project Status
 
-
-
-\## Latest
-
-
+## Latest
 
 Latest commit:
 
-b8b14c8 fix: harden multi-monitor refresh and chip overflow fades
+677919f fix: harden runtime taskbar state refresh handling
 
+Build35 completed and validated.
 
+## Completed
 
-\## Completed
+### Build20
 
+- adaptive horizontal overflow
+- >10 chip support
 
+### Build21
 
-\### Build20
+- manual chip reorder
+- drag/drop ordering
+- multi-monitor sync
 
-\- adaptive horizontal overflow
+### Build22
 
-\- >10 chip support
+- overflow directional fades
+- passive fade overlays
 
+### Build23
 
+- density presets
+- compact=32
+- comfortable=36
+- large=40
 
-\### Build21
+### Build25
 
-\- manual chip reorder
+- multi-monitor refresh hardening
+- runtime display refresh diagnostics
+- chip overflow fade stability
+- 10+ chip robustness validation support
 
-\- drag/drop ordering
+### Build35
 
-\- multi-monitor sync
+- runtime taskbar auto-hide robustness
+- WM_SETTINGCHANGE handling
+- shell settle refresh
+- live runtime taskbar state handling
 
+## Key Findings
 
+- UW 100% - Large (40 DIP) feels best.
+- Launch DPI behavior mostly OK.
+- Runtime DPI change while running still needs hardening.
 
-\### Build22
+## Active Backlog
 
-\- overflow directional fades
+### P1 Critical
 
-\- passive fade overlays
+#### TB-001 Runtime DPI hardening
 
+Runtime DPI changes while running still need validation / hardening.
 
+#### TB-002 Multi-monitor complete validation
 
-\### Build23
+Negative-origin, vertical stack, non-primary, runtime layout changes.
 
-\- density presets
+### P2 Important
 
-\- compact=32
+#### TB-003 Grouped multi-window close hardening
 
-\- comfortable=36
+Multi-tab / grouped close handling. Stale handle risk. Sequential close edge cases. Close semantics ambiguity.
 
-\- large=40
+#### TB-004 Context actions expansion
 
+Pin / Hide / Remove candidates.
 
-\### Build25
+### P3 Optional
 
-\- multi-monitor refresh hardening
+#### TB-005 Auto density mode
 
-\- runtime display refresh diagnostics
+#### TB-006 Density polish
 
-\- chip overflow fade stability
+## Known Problems
 
-\- 10+ chip robustness validation support
+### KP-001 Runtime DPI runtime instability
 
+### KP-002 Grouped multi-window close edge cases
 
-
-\## Key Findings
-
-
-
-\- UW 100% → Large (40 DIP) feels best.
-
-\- Launch DPI behavior mostly OK.
-
-\- Runtime DPI change while running still buggy.
-
-
-
-\## Backlog / Next Candidates
-
-
-
-\- Build24: WM\_DPICHANGED / WM\_DISPLAYCHANGE investigation
-
-\- Auto density mode
-
-\- Density polish
-
-\- Runtime taskbar auto-hide robustness
-
-\- Context action expansion
-
+### KP-003 Negative-origin monitor validation incomplete
