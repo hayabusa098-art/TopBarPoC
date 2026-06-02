@@ -35,6 +35,8 @@ public partial class TopBarWindow : Window
     private          List<WindowInfo>   _prevWindows = [];
     private static readonly List<IntPtr> _windowOrder = [];
     private readonly Dictionary<IntPtr, ImageSource?> _iconCache = new();
+    private readonly Dictionary<string, IntPtr> _lastGroupCycleHandles =
+        new(StringComparer.OrdinalIgnoreCase);
     private          double             _chipWidth   = 110.0;
     private bool _appBarRegistered;
     private bool _displayRefreshQueued;
@@ -710,6 +712,12 @@ public partial class TopBarWindow : Window
                 OpenNewWindow(launch);
                 return;
             }
+            if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 &&
+                btn.DataContext is WindowChipVm { IsGrouped: true } ctrlGroup)
+            {
+                CycleGroupedWindowFocus(ctrlGroup);
+                return;
+            }
             if (btn.DataContext is WindowChipVm { IsGrouped: true } group)
             {
                 OpenGroupedWindowMenu(btn, group);
@@ -821,6 +829,28 @@ public partial class TopBarWindow : Window
     {
         if (sender is MenuItem { Tag: IntPtr hwnd } && IsWindow(hwnd))
             RestoreAndActivateWindow(hwnd, "[GroupChipSelect]");
+    }
+
+    private void CycleGroupedWindowFocus(WindowChipVm group)
+    {
+        var handles = group.Handles.Where(IsWindow).ToList();
+        if (handles.Count == 0) return;
+
+        var info = _prevWindows.FirstOrDefault(window => handles.Contains(window.Handle));
+        if (string.IsNullOrEmpty(info.AppKey)) return;
+
+        int currentIndex = handles.IndexOf(_clickSnapshot);
+        if (currentIndex < 0)
+            currentIndex = handles.IndexOf(_lastExternalForeground);
+        if (currentIndex < 0 &&
+            _lastGroupCycleHandles.TryGetValue(info.AppKey, out var lastCycleHandle))
+            currentIndex = handles.IndexOf(lastCycleHandle);
+        if (currentIndex < 0)
+            currentIndex = 0;
+
+        var target = handles[(currentIndex + 1) % handles.Count];
+        _lastGroupCycleHandles[info.AppKey] = target;
+        RestoreAndActivateWindow(target, "[GroupCtrlClick]");
     }
 
     private readonly record struct OpenNewWindowLaunch(string Path, string? Argument);
