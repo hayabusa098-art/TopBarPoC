@@ -8,7 +8,7 @@
 
 Latest commit:
 
-130e2a8 feat: add topbar density presets
+b8b14c8 fix: harden multi-monitor refresh and chip overflow fades
 
 
 
@@ -51,6 +51,17 @@ Latest commit:
 \- comfortable=36
 
 \- large=40
+
+
+\### Build25
+
+\- multi-monitor refresh hardening
+
+\- runtime display refresh diagnostics
+
+\- chip overflow fade stability
+
+\- 10+ chip robustness validation support
 
 
 
