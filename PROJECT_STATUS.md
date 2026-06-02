@@ -4,9 +4,9 @@
 
 Latest commit:
 
-0700358 feat: add glass minimal ui refresh and balanced chip density
+9ef3386 fix: harden close diagnostics and window enumeration
 
-Build37 completed, validated, and pushed to origin/master.
+Build38A completed, validated, and pushed to origin/master.
 
 ## Build37 — Glass Minimal Refresh
 
@@ -99,9 +99,19 @@ Build37C implemented:
 
 ---
 
-### Follow-up — Build37D (Auto Density)
+### Completed — Build37D (Auto Density)
 
-Tracked canonically as TB-005 Build37D — Auto Density.
+Adaptive density switching implemented.
+
+Modes:
+
+* Expanded
+* Balanced
+* Compact
+
+Commit:
+
+55b0892 feat: add adaptive spacing density for window chips
 
 ---
 
@@ -114,32 +124,28 @@ Still behind the Glass Minimal target:
 * no Acrylic/Mica/backdrop blur yet
 * current implementation uses fake glass
 
-2. Auto density system
-
-* no automatic Expanded/Balanced/Compact switching yet
-
-3. Typography
+2. Typography
 
 * spec: Manrope / JetBrains Mono
 * current: Segoe UI
 
-4. Status cluster completeness
+3. Status cluster completeness
 
 * CPU/MEM / Wi-Fi / Battery design not fully matched
 
-5. Launcher / pinned app treatment
+4. Launcher / pinned app treatment
 
 * not fully aligned with mock
 
-6. Overflow visual design
+5. Overflow visual design
 
 * compact collapse behavior not finalized
 
-7. Adaptive contrast
+6. Adaptive contrast
 
 * wallpaper brightness adaptation not implemented
 
-8. DPI/material scaling polish
+7. DPI/material scaling polish
 
 * blur/radius/shadow scaling future work
 
@@ -182,13 +188,40 @@ Still behind the Glass Minimal target:
 - shell settle refresh
 - live runtime taskbar state handling
 
+### Build37D
+
+- adaptive window chip density
+- Expanded / Balanced / Compact modes
+- layout-pressure hysteresis
+- commit: 55b0892 feat: add adaptive spacing density for window chips
+
+### Build38A
+
+- PostMessage SetLastError=true
+- TryCloseWindow helper
+- singleton / grouped close routing
+- TryGetContextWindow diagnostics
+- WS_EX_NOACTIVATE window filter hardening
+- post-fetch empty-title validation
+- [WindowEnum] include diagnostics
+- temporary diagnostics cleanup
+- commit: 9ef3386 fix: harden close diagnostics and window enumeration
+
+Observed:
+
+- Some helper / transient windows, such as Steam and Discord helper surfaces, may appear in TopBar while not appearing in the Windows taskbar.
+- This motivated the Build38B investigation.
+
 ## Key Findings
 
 - UW 100% - Large (40 DIP) feels best.
 - Launch DPI behavior mostly OK.
 - Runtime DPI change while running still needs hardening.
+- Taskbar parity design note: Windows taskbar behavior cannot be perfectly replicated via window style inspection alone. Shell-managed taskbar state may diverge from EnumWindows eligibility.
 
 ## Active Backlog
+
+TB-005 is retained as the historical ID for completed Build37D Auto Density and is not reused below.
 
 ### P1 Critical
 
@@ -202,43 +235,61 @@ Negative-origin, vertical stack, non-primary, runtime layout changes.
 
 ### P2 Important
 
-#### TB-003 Grouped multi-window close hardening
+#### TB-003 Grouped close UX / edge cases
 
-Multi-tab / grouped close handling. Stale handle risk. Sequential close edge cases. Close semantics ambiguity.
+Remaining grouped close work:
+
+* sequential grouped close behavior
+* stale handle handling strategy
+* grouped close semantics / UX ambiguity
+* popup interaction edge cases
 
 #### TB-004 Context actions expansion
 
 Pin / Hide / Remove candidates.
 
-#### TB-005 Build37D — Auto Density
+#### TB-007 Build38B — Known Non-Taskbar Surface Filter
 
-Adaptive density switching.
+Reduce helper / transient windows that appear in TopBar but not in the Windows taskbar.
 
-Modes:
+Observed:
 
-* Expanded
-* Balanced
-* Compact
+* Steam helper surfaces
+* Discord helper surfaces
 
-Potential inputs:
+Notes:
 
-* availableWidth
-* chipCount
-* overflow pressure
-
-Behavior:
-
-* low pressure / wide layout → Expanded or Balanced
-* crowded layout → Compact
+* style rules alone cannot fully match Windows taskbar behavior
+* possible ITaskbarList / shell state divergence
+* prefer investigation + targeted filtering
+* avoid blanket ApplicationFrameHost removal
+* avoid aggressive deny lists without evidence
 
 ### P3 Optional
 
 #### TB-006 Density polish
+
+Residual visual polish only. Build37C / Build37D density behavior is already implemented.
+
+#### TB-008 Future UX — Hover Preview / Taskbar-style Preview
+
+Investigate taskbar-style hover preview UX and a possible preview close button.
+
+Not part of Build38A.
+
+#### TB-009 Future UX — Window Chip Display Modes
+
+Potential user-selectable display modes:
+
+* icon only
+* icon + title
 
 ## Known Problems
 
 ### KP-001 Runtime DPI runtime instability
 
 ### KP-002 Grouped multi-window close edge cases
+
+Grouped close can still exhibit intermittent stale-handle or popup interaction edge cases.
 
 ### KP-003 Negative-origin monitor validation incomplete
