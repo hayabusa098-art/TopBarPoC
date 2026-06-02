@@ -50,6 +50,14 @@ public partial class TopBarWindow : Window
     private IntPtr _suppressClickHwnd;
     private System.Windows.Point _dragStartPoint;
     private IntPtr _clickSnapshot = IntPtr.Zero;
+    private ChipDensityMode _chipDensityMode = ChipDensityMode.Balanced;
+
+    private enum ChipDensityMode
+    {
+        Expanded,
+        Balanced,
+        Compact,
+    }
 
     // ── Construction ──────────────────────────────────────────────────────────
     public TopBarWindow(WinFormsScreen screen, double barHeightDip)
@@ -370,11 +378,81 @@ public partial class TopBarWindow : Window
 
         if (!double.IsFinite(available) || available <= 0) return;
 
-        double chipWidth = available / n - 3.0;
+        double rawShare = available / n - 3.0;
+        _chipDensityMode = ResolveChipDensityMode(available, n, rawShare);
+
+        double chipGap;
+        Thickness chipPadding;
+        Thickness chipMargin;
+        double inactiveWidth;
+        double activeWidth;
+
+        switch (_chipDensityMode)
+        {
+            case ChipDensityMode.Expanded:
+                // Spacious feel through wider gaps, not wider pills
+                chipGap      = 12.0;
+                chipPadding  = new Thickness(12, 0, 12, 0);
+                chipMargin   = new Thickness(0, 0, 12, 0);
+                break;
+            case ChipDensityMode.Compact:
+                chipGap      = 2.0;
+                chipPadding  = new Thickness(6, 0, 6, 0);
+                chipMargin   = new Thickness(0, 0, 2, 0);
+                break;
+            default: // Balanced
+                chipGap      = 3.0;
+                chipPadding  = new Thickness(8, 0, 8, 0);
+                chipMargin   = new Thickness(0, 0, 3, 0);
+                break;
+        }
+
+        double chipWidth = available / n - chipGap;
+
+        switch (_chipDensityMode)
+        {
+            case ChipDensityMode.Expanded:
+                // Same caps as Balanced — air comes from gaps, not pill size
+                inactiveWidth = Math.Clamp(chipWidth, 52.0, 95.0);
+                activeWidth   = Math.Clamp(chipWidth, 68.0, 120.0);
+                break;
+            case ChipDensityMode.Compact:
+                inactiveWidth = Math.Clamp(chipWidth, 52.0, 60.0);
+                activeWidth   = Math.Clamp(chipWidth, 68.0, 84.0);
+                break;
+            default:
+                inactiveWidth = Math.Clamp(chipWidth, 52.0, 95.0);
+                activeWidth   = Math.Clamp(chipWidth, 68.0, 120.0);
+                break;
+        }
+
         foreach (var vm in _chipVms)
-            vm.Width = vm.IsActive
-                ? Math.Clamp(chipWidth, 68.0, 120.0)
-                : Math.Clamp(chipWidth, 52.0,  95.0);
+        {
+            vm.Width      = vm.IsActive ? activeWidth : inactiveWidth;
+            vm.ChipMargin  = chipMargin;
+            vm.ChipPadding = chipPadding;
+        }
+    }
+
+    private ChipDensityMode ResolveChipDensityMode(double available, int chipCount, double chipWidth)
+    {
+        var nextMode = _chipDensityMode switch
+        {
+            ChipDensityMode.Expanded when chipWidth <= 72.0 => ChipDensityMode.Compact,
+            ChipDensityMode.Expanded when chipWidth <  96.0 => ChipDensityMode.Balanced,
+            ChipDensityMode.Balanced when chipWidth >= 104.0 => ChipDensityMode.Expanded,
+            ChipDensityMode.Balanced when chipWidth <=  72.0 => ChipDensityMode.Compact,
+            ChipDensityMode.Compact  when chipWidth >= 104.0 => ChipDensityMode.Expanded,
+            ChipDensityMode.Compact  when chipWidth >   80.0 => ChipDensityMode.Balanced,
+            _ => _chipDensityMode,
+        };
+
+        if (nextMode != _chipDensityMode)
+            Debug.WriteLine(
+                $"[ChipDensity] {_chipDensityMode} -> {nextMode} " +
+                $"available={available:F1} chips={chipCount} share={chipWidth:F1}");
+
+        return nextMode;
     }
 
     // ── Window switcher ───────────────────────────────────────────────────────
