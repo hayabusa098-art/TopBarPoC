@@ -209,15 +209,20 @@ public partial class TopBarWindow : Window
         {
             switch ((uint)wParam)
             {
+                case ABN_STATECHANGE:
+                    // Taskbar auto-hide state changed at runtime; re-query our reserved position.
+                    RefreshPosition();
+                    break;
                 case ABN_POSCHANGED:
-                    // MVP: skip re-query. ABM_SETPOS itself triggers ABN_POSCHANGED, and
+                    // Skip re-query. ABM_SETPOS itself triggers ABN_POSCHANGED, and
                     // re-querying while our own bar is registered causes the shell to return
                     // rc.Top = barHeight (treating our own reservation as an obstacle), which
                     // shifts the bar down by one bar-height per notification cycle.
                     // Fixed-top bar with bottom taskbar (primary environment) needs no adjustment.
                     break;
                 case ABN_FULLSCREENAPP:
-                    // MVP: no policy; full-screen z-order handling deferred
+                    // Intentional: no auto-hide policy for full-screen apps.
+                    // Bar remains visible; full-screen z-order handling is out of scope.
                     break;
             }
         }
@@ -260,11 +265,12 @@ public partial class TopBarWindow : Window
             int expectedTop  = _screen.Bounds.Top;
             int displacedTop = expectedTop + PhysicalBarHeight();
             bool isNoMove    = (wpos.flags & 0x0002u) != 0; // SWP_NOMOVE
-            // Narrow fix: corrects only the known obstacle-displacement case where the Shell
-            // pushes the bar down by exactly its own height during auto-hide state changes.
+            // Corrects obstacle-displacement: shell pushes bar down by its own height.
+            // 1-pixel tolerance handles any rounding difference between our height
+            // calculation and the shell's (relevant after runtime DPI changes).
             if (_appBarRegistered
                 && !isNoMove
-                && wpos.y == displacedTop)
+                && Math.Abs(wpos.y - displacedTop) <= 1)
             {
                 Debug.WriteLine($"[WM_WINDOWPOSCHANGING] obstacle correction: y={wpos.y}→{expectedTop}");
                 wpos.y = expectedTop;

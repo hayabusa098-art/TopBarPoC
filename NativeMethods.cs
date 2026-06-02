@@ -107,7 +107,7 @@ internal static class NativeMethods
     internal const uint ABM_QUERYPOS = 2, ABM_SETPOS  = 3;
     internal const uint ABM_ACTIVATE = 6, ABM_WINDOWPOSCHANGED = 9;
     internal const uint ABE_TOP      = 1;
-    internal const uint ABN_POSCHANGED = 1, ABN_FULLSCREENAPP = 2;
+    internal const uint ABN_STATECHANGE = 0, ABN_POSCHANGED = 1, ABN_FULLSCREENAPP = 2;
     internal const uint SWP_NOACTIVATE = 0x0010, SWP_NOZORDER = 0x0004;
     internal const int  WM_MOUSEACTIVATE = 0x0021, WM_ACTIVATE = 0x0006, WM_WINDOWPOSCHANGED = 0x0047, WM_WINDOWPOSCHANGING = 0x0046;
     internal const int  WM_DISPLAYCHANGE = 0x007E, WM_DPICHANGED = 0x02E0;
