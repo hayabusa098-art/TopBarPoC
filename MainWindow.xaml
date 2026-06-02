@@ -460,10 +460,11 @@
                         <DataTemplate>
                             <Button Content="{Binding Title}"
                                     Tag="{Binding Handle}"
-                                    ToolTip="{Binding Title, StringFormat={}{0} - Drag to reorder}"
+                                    ToolTip="{Binding ToolTipText}"
                                     Width="{Binding Width}"
                                     Margin="0,0,3,0"
                                     ContextMenuService.Placement="Bottom"
+                                    ContextMenuOpening="ChipButton_ContextMenuOpening"
                                     PreviewMouseLeftButtonDown="ChipButton_PreviewMouseLeftButtonDown"
                                     PreviewMouseLeftButtonUp="ChipButton_PreviewMouseLeftButtonUp"
                                     PreviewMouseMove="ChipButton_PreviewMouseMove"

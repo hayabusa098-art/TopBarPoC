@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -311,6 +312,7 @@ public partial class TopBarWindow : Window
         var result   = new List<WindowInfo>(16);
         var shellWnd = GetShellWindow();
         var selfPid  = (uint)Environment.ProcessId;
+        var appIdentityCache = new Dictionary<uint, (string Key, string Label)>();
 
         EnumWindowsProc callback = (hWnd, _) =>
         {
@@ -333,12 +335,52 @@ public partial class TopBarWindow : Window
 
             var sb = new StringBuilder(textLen + 1);
             GetWindowText(hWnd, sb, sb.Capacity);
-            result.Add(new WindowInfo(hWnd, sb.ToString(), isMinimized));
+            if (!appIdentityCache.TryGetValue(pid, out var identity))
+            {
+                identity = ResolveAppIdentity(pid, hWnd);
+                if (!identity.Key.StartsWith("hwnd:", StringComparison.Ordinal))
+                    appIdentityCache[pid] = identity;
+            }
+            var (appKey, appLabel) = identity;
+            result.Add(new WindowInfo(hWnd, sb.ToString(), isMinimized, appKey, appLabel));
             return true;
         };
         EnumWindows(callback, IntPtr.Zero);
         return result;
     }
+
+    private static (string Key, string Label) ResolveAppIdentity(uint pid, IntPtr hwnd)
+    {
+        try
+        {
+            using var process = Process.GetProcessById((int)pid);
+            string processName = process.ProcessName;
+            string label = FormatAppLabel(processName);
+            if (processName.Equals("ApplicationFrameHost", StringComparison.OrdinalIgnoreCase) ||
+                processName.Equals("dllhost",              StringComparison.OrdinalIgnoreCase) ||
+                processName.Equals("RuntimeBroker",        StringComparison.OrdinalIgnoreCase))
+                return ($"hwnd:{hwnd}", label);
+
+            try
+            {
+                string? executablePath = process.MainModule?.FileName;
+                if (!string.IsNullOrWhiteSpace(executablePath))
+                    return ($"path:{executablePath}", label);
+            }
+            catch { }
+
+            if (!string.IsNullOrWhiteSpace(processName))
+                return ($"process:{processName}", label);
+        }
+        catch { }
+
+        return ($"hwnd:{hwnd}", "Window");
+    }
+
+    private static string FormatAppLabel(string processName)
+        => string.IsNullOrEmpty(processName)
+            ? "Window"
+            : char.ToUpperInvariant(processName[0]) + processName[1..];
 
     private static bool IsCloaked(IntPtr hwnd)
     {
@@ -384,7 +426,8 @@ public partial class TopBarWindow : Window
         bool structuralChange =
             windows.Count != _prevWindows.Count ||
             Enumerable.Range(0, windows.Count)
-                      .Any(i => windows[i].Handle != _prevWindows[i].Handle);
+                      .Any(i => windows[i].Handle != _prevWindows[i].Handle ||
+                                windows[i].AppKey != _prevWindows[i].AppKey);
         _prevWindows = windows;
 
         if (structuralChange)
@@ -394,11 +437,18 @@ public partial class TopBarWindow : Window
             foreach (var stale in _iconCache.Keys.Where(k => !current.Contains(k)).ToList())
                 _iconCache.Remove(stale);
 
-            _chipVms = windows.Select(w => new WindowChipVm
+            _chipVms = windows.GroupBy(w => w.AppKey, StringComparer.OrdinalIgnoreCase)
+                .Select(group =>
             {
-                Handle      = w.Handle,
-                Title       = w.Title,
-                Icon        = GetCachedIcon(w.Handle),
+                var members = group.ToList();
+                var first = members[0];
+                return new WindowChipVm
+                {
+                    Handle  = first.Handle,
+                    Handles = members.Select(w => w.Handle).ToArray(),
+                    Title   = members.Count == 1 ? first.Title : $"{first.AppLabel} ×{members.Count}",
+                    Icon    = GetCachedIcon(first.Handle),
+                };
             }).ToList();
             WindowChips.ItemsSource = _chipVms;
             RecalcChipWidth();
@@ -408,16 +458,15 @@ public partial class TopBarWindow : Window
         // Sync IsMinimized and Title via INPC (no ItemsSource rebind needed)
         foreach (var vm in _chipVms)
         {
-            if (byHandle.TryGetValue(vm.Handle, out var info))
-            {
-                vm.IsMinimized = info.IsMinimized;
-                vm.Title       = info.Title;
-            }
+            var infos = vm.Handles.Where(byHandle.ContainsKey).Select(h => byHandle[h]).ToList();
+            vm.IsMinimized = infos.Count > 0 && infos.All(info => info.IsMinimized);
+            if (!vm.IsGrouped && infos.Count == 1)
+                vm.Title = infos[0].Title;
         }
 
         // Always sync active state (foreground window can change between polls)
         foreach (var vm in _chipVms)
-            vm.IsActive = vm.Handle == _lastExternalForeground;
+            vm.IsActive = vm.Handles.Contains(_lastExternalForeground);
 
         RevealActiveChipIfNeeded();
     }
@@ -498,20 +547,26 @@ public partial class TopBarWindow : Window
             return;
         }
 
-        if (!_windowOrder.Remove(hwnd)) return;
+        var sourceVm = _chipVms.FirstOrDefault(vm => vm.Handle == hwnd);
+        if (sourceVm is null) return;
+        var sourceSet = new HashSet<IntPtr>(sourceVm.Handles);
+        var sourceHandles = _windowOrder.Where(sourceSet.Contains).ToList();
+        if (sourceHandles.Count == 0) return;
+        _windowOrder.RemoveAll(sourceSet.Contains);
 
+        bool inserted = false;
         if (target?.Tag is IntPtr targetHwnd &&
-            _windowOrder.IndexOf(targetHwnd) is int targetIndex &&
+            _chipVms.FirstOrDefault(vm => vm.Handle == targetHwnd) is { } targetVm &&
+            _windowOrder.FindIndex(targetVm.Handles.Contains) is int targetIndex &&
             targetIndex >= 0)
         {
             if (e.GetPosition(target).X >= target.ActualWidth / 2)
-                targetIndex++;
-            _windowOrder.Insert(targetIndex, hwnd);
+                targetIndex = _windowOrder.FindLastIndex(targetVm.Handles.Contains) + 1;
+            _windowOrder.InsertRange(targetIndex, sourceHandles);
+            inserted = true;
         }
-        else
-        {
-            _windowOrder.Add(hwnd);
-        }
+        if (!inserted)
+            _windowOrder.AddRange(sourceHandles);
 
         _prevWindows = [];
         RefreshWindowChips();
@@ -600,7 +655,7 @@ public partial class TopBarWindow : Window
         var hwnd = _lastExternalForeground;
         if (hwnd == _lastRevealedForeground) return;
 
-        var vm = _chipVms.FirstOrDefault(item => item.Handle == hwnd);
+        var vm = _chipVms.FirstOrDefault(item => item.Handles.Contains(hwnd));
         if (vm is null) return;
 
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
@@ -648,6 +703,11 @@ public partial class TopBarWindow : Window
                 _suppressClickHwnd = IntPtr.Zero;
                 return;
             }
+            if (btn.DataContext is WindowChipVm { IsGrouped: true } group)
+            {
+                OpenGroupedWindowMenu(btn, group);
+                return;
+            }
             if (!IsWindow(hwnd)) return;
             bool isActive = _clickSnapshot != IntPtr.Zero
                 ? hwnd == _clickSnapshot
@@ -691,7 +751,7 @@ public partial class TopBarWindow : Window
             // Build17: optimistic active update — instant chip highlight on success
             if (sfwOk)
                 foreach (var vm in _chipVms)
-                    vm.IsActive = vm.Handle == hwnd;
+                    vm.IsActive = vm.Handles.Contains(hwnd);
 
             // Build16: one-shot 50ms retry if SFW failed or foreground did not switch
             if (!sfwOk || !fgMatch)
@@ -716,6 +776,41 @@ public partial class TopBarWindow : Window
         return true;
     }
 
+    private void OpenGroupedWindowMenu(Button button, WindowChipVm group)
+    {
+        var menu = new ContextMenu
+        {
+            Style = (Style)FindResource("ChipContextMenuStyle"),
+            PlacementTarget = button,
+            Placement = PlacementMode.Bottom,
+        };
+        foreach (var hwnd in group.Handles)
+        {
+            var info = _prevWindows.FirstOrDefault(window => window.Handle == hwnd);
+            var item = new MenuItem
+            {
+                Header = info.Handle == IntPtr.Zero ? $"0x{hwnd:X8}" : info.Title,
+                Tag = hwnd,
+                Style = (Style)FindResource("ChipContextMenuItemStyle"),
+            };
+            item.Click += GroupWindowMenuItem_Click;
+            menu.Items.Add(item);
+        }
+        menu.IsOpen = true;
+    }
+
+    private void GroupWindowMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: IntPtr hwnd } && IsWindow(hwnd))
+            RestoreAndActivateWindow(hwnd, "[GroupChipSelect]");
+    }
+
+    private void ChipButton_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (sender is Button { DataContext: WindowChipVm { IsGrouped: true } })
+            e.Handled = true;
+    }
+
     private void ChipMinimizeMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (TryGetContextWindow(sender, out var hwnd))
@@ -725,9 +820,13 @@ public partial class TopBarWindow : Window
     private void ChipRestoreMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (!TryGetContextWindow(sender, out var hwnd)) return;
+        RestoreAndActivateWindow(hwnd, "[ChipRestore]");
+    }
 
+    private void RestoreAndActivateWindow(IntPtr hwnd, string tag)
+    {
         bool iconicBefore = IsIconic(hwnd);
-        ShowWindow(hwnd, SW_RESTORE);
+        if (iconicBefore) ShowWindow(hwnd, SW_RESTORE);
         bool iconicAfter = IsIconic(hwnd);
 
         GetWindowThreadProcessId(hwnd, out uint targetPid);
@@ -744,7 +843,7 @@ public partial class TopBarWindow : Window
         bool elevMismatch = !sfwOk && sfwErr == 5; // probable elevation/UIPI denial
 
         Debug.WriteLine(
-            $"[ChipRestore] hwnd=0x{hwnd:X8} proc={targetProc} " +
+            $"{tag} hwnd=0x{hwnd:X8} proc={targetProc} " +
             $"iconic={iconicBefore}→{iconicAfter} " +
             $"sfw={sfwOk} err={sfwErr} elev={elevMismatch} " +
             $"elapsed={sw16.ElapsedMilliseconds}ms " +
@@ -752,18 +851,18 @@ public partial class TopBarWindow : Window
 
         if (elevMismatch)
         {
-            Debug.WriteLine($"[ChipRestore] probable elevation/UIPI denial — retry skipped hwnd=0x{hwnd:X8}");
+            Debug.WriteLine($"{tag} probable elevation/UIPI denial — retry skipped hwnd=0x{hwnd:X8}");
             return;
         }
 
         // Build17: optimistic active update — instant chip highlight on success
         if (sfwOk)
             foreach (var vm in _chipVms)
-                vm.IsActive = vm.Handle == hwnd;
+                vm.IsActive = vm.Handles.Contains(hwnd);
 
         // Build16: one-shot 50ms retry if SFW failed or foreground did not switch
         if (!sfwOk || !fgMatch)
-            ScheduleForegroundRetry(hwnd, "[ChipRestore.retry]");
+            ScheduleForegroundRetry(hwnd, $"{tag}.retry");
     }
 
     private void ChipCloseMenuItem_Click(object sender, RoutedEventArgs e)
