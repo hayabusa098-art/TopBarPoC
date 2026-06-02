@@ -483,6 +483,10 @@
                                         <MenuItem Header="Close"
                                                   Style="{StaticResource ChipContextMenuItemStyle}"
                                                   Click="ChipCloseMenuItem_Click"/>
+                                        <MenuItem Header="Open New Window"
+                                                  Tag="openNewWindow"
+                                                  Style="{StaticResource ChipContextMenuItemStyle}"
+                                                  Click="OpenNewWindowMenuItem_Click"/>
                                     </ContextMenu>
                                 </Button.ContextMenu>
                                 <Button.Style>

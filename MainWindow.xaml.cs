@@ -703,6 +703,13 @@ public partial class TopBarWindow : Window
                 _suppressClickHwnd = IntPtr.Zero;
                 return;
             }
+            if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0 &&
+                btn.DataContext is WindowChipVm chip &&
+                TryGetOpenNewWindowLaunch(chip, out var launch))
+            {
+                OpenNewWindow(launch);
+                return;
+            }
             if (btn.DataContext is WindowChipVm { IsGrouped: true } group)
             {
                 OpenGroupedWindowMenu(btn, group);
@@ -796,6 +803,17 @@ public partial class TopBarWindow : Window
             item.Click += GroupWindowMenuItem_Click;
             menu.Items.Add(item);
         }
+        if (TryGetOpenNewWindowLaunch(group, out var launch))
+        {
+            var item = new MenuItem
+            {
+                Header = "Open New Window",
+                Tag = launch,
+                Style = (Style)FindResource("ChipContextMenuItemStyle"),
+            };
+            item.Click += OpenNewWindowMenuItem_Click;
+            menu.Items.Add(item);
+        }
         menu.IsOpen = true;
     }
 
@@ -805,10 +823,75 @@ public partial class TopBarWindow : Window
             RestoreAndActivateWindow(hwnd, "[GroupChipSelect]");
     }
 
+    private readonly record struct OpenNewWindowLaunch(string Path, string? Argument);
+
+    private bool TryGetOpenNewWindowLaunch(WindowChipVm chip, out OpenNewWindowLaunch launch)
+    {
+        launch = default;
+        var info = _prevWindows.FirstOrDefault(window => chip.Handles.Contains(window.Handle));
+        const string pathPrefix = "path:";
+        if (string.IsNullOrEmpty(info.AppKey) ||
+            !info.AppKey.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        string path = info.AppKey[pathPrefix.Length..];
+        if (!File.Exists(path)) return false;
+
+        string processName = Path.GetFileNameWithoutExtension(path);
+        string? argument = processName.ToLowerInvariant() switch
+        {
+            "explorer" => null,
+            "chrome"   => "--new-window",
+            "brave"    => "--new-window",
+            "msedge"   => "--new-window",
+            "code"     => "--new-window",
+            _          => null,
+        };
+        if (argument is null && !processName.Equals("explorer", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        launch = new OpenNewWindowLaunch(path, argument);
+        return true;
+    }
+
+    private void OpenNewWindowMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem item) return;
+        OpenNewWindowLaunch launch;
+        if (item.Tag is OpenNewWindowLaunch groupedLaunch)
+            launch = groupedLaunch;
+        else if (item.Tag is "openNewWindow" &&
+                 ContextMenu.ItemsControlFromItemContainer(item) is ContextMenu menu &&
+                 menu.PlacementTarget is Button { DataContext: WindowChipVm chip } &&
+                 TryGetOpenNewWindowLaunch(chip, out var singletonLaunch))
+            launch = singletonLaunch;
+        else
+            return;
+
+        OpenNewWindow(launch);
+    }
+
+    private static void OpenNewWindow(OpenNewWindowLaunch launch)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo(launch.Path) { UseShellExecute = true };
+            if (launch.Argument is not null) startInfo.ArgumentList.Add(launch.Argument);
+            Process.Start(startInfo);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[OpenNewWindow] launch failed path={launch.Path} error={ex.Message}");
+        }
+    }
+
     private void ChipButton_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        if (sender is Button { DataContext: WindowChipVm { IsGrouped: true } })
-            e.Handled = true;
+        if (sender is not Button { DataContext: WindowChipVm { IsGrouped: true } group } btn)
+            return;
+
+        e.Handled = true;
+        OpenGroupedWindowMenu(btn, group);
     }
 
     private void ChipMinimizeMenuItem_Click(object sender, RoutedEventArgs e)
@@ -879,6 +962,11 @@ public partial class TopBarWindow : Window
         {
             if (item.Tag is "minimize") item.Visibility = isMinimized ? Visibility.Collapsed : Visibility.Visible;
             else if (item.Tag is "restore")  item.Visibility = isMinimized ? Visibility.Visible  : Visibility.Collapsed;
+            else if (item.Tag is "openNewWindow")
+                item.Visibility = btn.DataContext is WindowChipVm chip &&
+                                  TryGetOpenNewWindowLaunch(chip, out _)
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
         }
     }
 
