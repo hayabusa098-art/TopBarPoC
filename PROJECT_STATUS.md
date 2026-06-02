@@ -4,21 +4,24 @@
 
 Latest commit:
 
-677919f fix: harden runtime taskbar state refresh handling
+0700358 feat: add glass minimal ui refresh and balanced chip density
 
-Build35 completed and validated.
+Build37 completed, validated, and pushed to origin/master.
 
 ## Build37 — Glass Minimal Refresh
 
 ### Current State
 
-Build37B completed.
+Build37B Glass Minimal refresh completed.
+Build37C Balanced Density completed.
 
 Status:
 
-* visual refresh implemented
-* dotnet build: 0 error / 0 warning
-* MainWindow.xaml only
+* Build37 completed
+* commit: 0700358
+* pushed to origin/master
+* dotnet build: 0 warnings / 0 errors
+* real-device/manual verification passed
 
 Implemented:
 
@@ -54,7 +57,7 @@ Priority:
 
 ---
 
-### Next Work — Build37C (Balanced Density)
+### Completed — Build37C (Balanced Density)
 
 Adopted direction:
 
@@ -86,7 +89,7 @@ Keep:
 * RecalcChipWidth()
 * WindowChipVm width plumbing
 
-Build37C scope:
+Build37C implemented:
 
 * MainWindow.xaml focused
 * short label tuning
@@ -98,29 +101,7 @@ Build37C scope:
 
 ### Follow-up — Build37D (Auto Density)
 
-Future goal:
-
-Adaptive density switching based on available space.
-
-Candidate modes:
-
-Expanded
-Balanced
-Compact
-
-Potential inputs:
-
-* availableWidth
-* chipCount
-* overflow pressure
-
-Concept:
-
-Large monitor / low pressure
-→ Expanded or Balanced
-
-Crowded layout / high pressure
-→ Compact
+Tracked canonically as TB-005 Build37D — Auto Density.
 
 ---
 
@@ -229,9 +210,28 @@ Multi-tab / grouped close handling. Stale handle risk. Sequential close edge cas
 
 Pin / Hide / Remove candidates.
 
-### P3 Optional
+#### TB-005 Build37D — Auto Density
 
-#### TB-005 Auto density mode
+Adaptive density switching.
+
+Modes:
+
+* Expanded
+* Balanced
+* Compact
+
+Potential inputs:
+
+* availableWidth
+* chipCount
+* overflow pressure
+
+Behavior:
+
+* low pressure / wide layout → Expanded or Balanced
+* crowded layout → Compact
+
+### P3 Optional
 
 #### TB-006 Density polish
 
