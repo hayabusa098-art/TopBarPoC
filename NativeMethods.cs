@@ -110,7 +110,7 @@ internal static class NativeMethods
     internal const uint ABN_STATECHANGE = 0, ABN_POSCHANGED = 1, ABN_FULLSCREENAPP = 2;
     internal const uint SWP_NOACTIVATE = 0x0010, SWP_NOZORDER = 0x0004;
     internal const int  WM_MOUSEACTIVATE = 0x0021, WM_ACTIVATE = 0x0006, WM_WINDOWPOSCHANGED = 0x0047, WM_WINDOWPOSCHANGING = 0x0046;
-    internal const int  WM_DISPLAYCHANGE = 0x007E, WM_DPICHANGED = 0x02E0;
+    internal const int  WM_DISPLAYCHANGE = 0x007E, WM_DPICHANGED = 0x02E0, WM_SETTINGCHANGE = 0x001A;
     internal const int  GWL_EXSTYLE       = -20;
     internal const int  WS_EX_TOOLWINDOW  = 0x00000080, WS_EX_APPWINDOW = 0x00040000;
     internal const uint GW_OWNER          = 4;

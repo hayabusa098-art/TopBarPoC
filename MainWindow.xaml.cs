@@ -39,9 +39,11 @@ public partial class TopBarWindow : Window
     private readonly Dictionary<string, IntPtr> _lastGroupCycleHandles =
         new(StringComparer.OrdinalIgnoreCase);
     private          double             _chipWidth   = 110.0;
-    private bool _appBarRegistered;
-    private bool _displayRefreshQueued;
-    private bool _displaySettingsSubscribed;
+    private bool             _appBarRegistered;
+    private bool             _displayRefreshQueued;
+    private bool             _shellStateRefreshQueued;
+    private DispatcherTimer? _shellSettleTimer;
+    private bool             _displaySettingsSubscribed;
     private IntPtr _lastExternalForeground;
     private IntPtr _lastRevealedForeground;
     private IntPtr _dragCandidateHwnd;
@@ -74,6 +76,7 @@ public partial class TopBarWindow : Window
         {
             _clock?.Stop();
             _windowPollTimer?.Stop();
+            _shellSettleTimer?.Stop();
             if (_displaySettingsSubscribed)
             {
                 SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
@@ -174,6 +177,39 @@ public partial class TopBarWindow : Window
         }));
     }
 
+    private void QueueShellStateRefresh()
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(QueueShellStateRefresh));
+            return;
+        }
+        if (_shellStateRefreshQueued) return;
+        _shellStateRefreshQueued = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            _shellStateRefreshQueued = false;
+            if (!IsLoaded || !_appBarRegistered) return;
+            Debug.WriteLine("[ShellStateRefresh] re-querying AppBar position");
+            RefreshPosition();
+            // Lazy-init reusable settle timer; Stop/Start restarts the window on rapid bursts.
+            if (_shellSettleTimer is null)
+            {
+                _shellSettleTimer = new DispatcherTimer(DispatcherPriority.Normal)
+                    { Interval = TimeSpan.FromMilliseconds(500) };
+                _shellSettleTimer.Tick += (_, _) =>
+                {
+                    _shellSettleTimer.Stop();
+                    if (!IsLoaded || !_appBarRegistered) return;
+                    Debug.WriteLine("[ShellStateRefresh.settle] re-querying AppBar position");
+                    RefreshPosition();
+                };
+            }
+            _shellSettleTimer.Stop();
+            _shellSettleTimer.Start();
+        }));
+    }
+
     // ABM_QUERYPOS → clamp height → ABM_SETPOS → SetWindowPos
     private void QueryAndApplyPosition(IntPtr hwnd, int heightPx)
     {
@@ -210,8 +246,8 @@ public partial class TopBarWindow : Window
             switch ((uint)wParam)
             {
                 case ABN_STATECHANGE:
-                    // Taskbar auto-hide state changed at runtime; re-query our reserved position.
-                    RefreshPosition();
+                    // Taskbar auto-hide state changed; queue debounced reposition with settle delay.
+                    QueueShellStateRefresh();
                     break;
                 case ABN_POSCHANGED:
                     // Skip re-query. ABM_SETPOS itself triggers ABN_POSCHANGED, and
@@ -235,6 +271,10 @@ public partial class TopBarWindow : Window
         else if (msg == WM_DISPLAYCHANGE || msg == WM_DPICHANGED)
         {
             QueueDisplayRefresh();
+        }
+        else if (msg == WM_SETTINGCHANGE)
+        {
+            QueueShellStateRefresh();
         }
         else if (msg == WM_MOUSEACTIVATE)
         {
