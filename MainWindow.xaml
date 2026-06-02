@@ -18,7 +18,7 @@
 
         <Style x:Key="LauncherButtonStyle" TargetType="Button">
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#727272"/>
+            <Setter Property="Foreground"      Value="#788890"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding"         Value="0"/>
             <Setter Property="Margin"          Value="1,0"/>
@@ -48,12 +48,12 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#181818"/>
+                                <Setter TargetName="border" Property="Background" Value="#17FFFFFF"/>
                                 <Setter TargetName="hoverDot" Property="Visibility" Value="Visible"/>
                                 <Setter Property="Foreground" Value="#D0D0D0"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#242424"/>
+                                <Setter TargetName="border" Property="Background" Value="#14FFFFFF"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Foreground" Value="#303030"/>
@@ -65,14 +65,14 @@
         </Style>
 
         <Style x:Key="ChipButtonStyle" TargetType="Button">
-            <Setter Property="Background"      Value="#121212"/>
-            <Setter Property="Foreground"      Value="#8E8E8E"/>
+            <Setter Property="Background"      Value="#0DFFFFFF"/>
+            <Setter Property="Foreground"      Value="#8CC8CDD6"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontFamily"      Value="Segoe UI"/>
             <Setter Property="FontSize"        Value="11"/>
             <Setter Property="Padding"         Value="8,0"/>
-            <Setter Property="MinWidth"        Value="56"/>
-            <Setter Property="MaxWidth"        Value="110"/>
+            <Setter Property="MinWidth"        Value="52"/>
+            <Setter Property="MaxWidth"        Value="120"/>
             <Setter Property="Height"          Value="24"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
@@ -82,7 +82,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="10"
+                                CornerRadius="12"
                                 Padding="{TemplateBinding Padding}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -129,18 +129,18 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#1A1D1E"/>
-                                <Setter TargetName="label"  Property="Foreground" Value="#D4D8D9"/>
+                                <Setter TargetName="border" Property="Background" Value="#17FFFFFF"/>
+                                <Setter TargetName="label"  Property="Foreground" Value="#F2F4F7"/>
                                 <Trigger.EnterActions>
                                     <BeginStoryboard>
                                         <Storyboard FillBehavior="Stop">
                                             <ColorAnimation Storyboard.TargetName="border"
                                                             Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
-                                                            From="#121212" To="#1A1D1E"
+                                                            From="#0DFFFFFF" To="#17FFFFFF"
                                                             Duration="0:0:0.08"/>
                                             <ColorAnimation Storyboard.TargetName="label"
                                                             Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
-                                                            From="#8E8E8E" To="#D4D8D9"
+                                                            From="#8CC8CDD6" To="#F2F4F7"
                                                             Duration="0:0:0.08"/>
                                         </Storyboard>
                                     </BeginStoryboard>
@@ -150,11 +150,11 @@
                                         <Storyboard FillBehavior="Stop">
                                             <ColorAnimation Storyboard.TargetName="border"
                                                             Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
-                                                            From="#1A1D1E" To="#121212"
+                                                            From="#17FFFFFF" To="#0DFFFFFF"
                                                             Duration="0:0:0.12"/>
                                             <ColorAnimation Storyboard.TargetName="label"
                                                             Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
-                                                            From="#D4D8D9" To="#8E8E8E"
+                                                            From="#F2F4F7" To="#8CC8CDD6"
                                                             Duration="0:0:0.12"/>
                                         </Storyboard>
                                     </BeginStoryboard>
@@ -162,8 +162,8 @@
                             </Trigger>
                             <DataTrigger Binding="{Binding IsActive}" Value="True">
                                 <Setter TargetName="activeDot" Property="Visibility" Value="Visible"/>
-                                <Setter TargetName="border" Property="Background" Value="#202526"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#354247"/>
+                                <Setter TargetName="border" Property="Background" Value="#293DDC97"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#593DDC97"/>
                                 <Setter TargetName="border" Property="BorderThickness" Value="1"/>
                             </DataTrigger>
                             <MultiDataTrigger>
@@ -171,12 +171,12 @@
                                     <Condition Binding="{Binding IsActive}" Value="True"/>
                                     <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True"/>
                                 </MultiDataTrigger.Conditions>
-                                <Setter TargetName="border" Property="Background" Value="#263034"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#405157"/>
-                                <Setter TargetName="label" Property="Foreground" Value="#EAF1F2"/>
+                                <Setter TargetName="border" Property="Background" Value="#333DDC97"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#6B3DDC97"/>
+                                <Setter TargetName="label" Property="Foreground" Value="#EEF1F5"/>
                             </MultiDataTrigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#30383A"/>
+                                <Setter TargetName="border" Property="Background" Value="#1FFFFFFF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -185,8 +185,8 @@
         </Style>
 
         <Style x:Key="ChipContextMenuStyle" TargetType="ContextMenu">
-            <Setter Property="Background" Value="#101314"/>
-            <Setter Property="BorderBrush" Value="#293033"/>
+            <Setter Property="Background" Value="#0E1318"/>
+            <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="3"/>
             <Setter Property="HasDropShadow" Value="True"/>
@@ -290,33 +290,28 @@
         Trade-off: center point is (barWidth - rightGroupWidth) / 2 from left, not barWidth / 2.
         On ≥1080 px monitors the ~77 px offset is not noticeable. Right group safety is guaranteed.
     -->
-    <Border Margin="4,2"
-            Padding="3,0,2,0"
-            BorderThickness="1"
-            CornerRadius="13">
+    <Border Margin="0"
+            Padding="4,0,2,0"
+            BorderThickness="0,0,0,1"
+            CornerRadius="0,0,12,12">
         <Border.Background>
             <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-                <GradientStop Color="#101112" Offset="0"/>
-                <GradientStop Color="#0C0D0E" Offset="0.52"/>
-                <GradientStop Color="#08090A" Offset="1"/>
+                <GradientStop Color="#19303A" Offset="0"/>
+                <GradientStop Color="#0E151B" Offset="0.35"/>
+                <GradientStop Color="#0A0C10" Offset="1"/>
             </LinearGradientBrush>
         </Border.Background>
         <Border.BorderBrush>
-            <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-                <GradientStop Color="#343638" Offset="0"/>
-                <GradientStop Color="#222527" Offset="1"/>
-            </LinearGradientBrush>
+            <SolidColorBrush Color="#12FFFFFF"/>
         </Border.BorderBrush>
         <Border.Effect>
-            <DropShadowEffect BlurRadius="8"
+            <DropShadowEffect BlurRadius="12"
                               ShadowDepth="0"
                               Color="#000000"
-                              Opacity="0.38"/>
+                              Opacity="0.35"/>
         </Border.Effect>
-        <Border BorderBrush="#1D2224"
-                BorderThickness="1"
-                CornerRadius="11">
         <DockPanel LastChildFill="True">
+            <Rectangle DockPanel.Dock="Top" Height="1" Fill="#1FFFFFFF" IsHitTestVisible="False"/>
 
         <!-- ── RIGHT GROUP ── date / time / exit (docked first = always visible) ── -->
         <StackPanel DockPanel.Dock="Right"
@@ -325,7 +320,7 @@
                     Margin="0,0,2,0">
 
             <Rectangle Width="1" Height="12"
-                       Fill="#1D2223"
+                       Fill="#14FFFFFF"
                        Margin="7,0,2,0"
                        VerticalAlignment="Center"/>
 
@@ -333,13 +328,13 @@
                         VerticalAlignment="Center"
                         Margin="12,0,8,0">
                 <TextBlock x:Name="DateText"
-                           Foreground="#505254"
+                           Foreground="#7A8898"
                            FontFamily="Segoe UI"
                            FontSize="10"
                            VerticalAlignment="Center"
                            Margin="0,0,8,0"/>
                 <TextBlock x:Name="ClockText"
-                           Foreground="#CED0D1"
+                           Foreground="#F2F4F7"
                            FontFamily="Segoe UI"
                            FontSize="12"
                            FontWeight="SemiBold"
@@ -402,16 +397,11 @@
 
                 <Border x:Name="LauncherPill"
                         Grid.Column="0"
-                        BorderBrush="#293033"
+                        Background="#0AFFFFFF"
+                        BorderBrush="#12FFFFFF"
                         BorderThickness="1"
                         CornerRadius="9"
                         Padding="1,0">
-                    <Border.Background>
-                        <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
-                            <GradientStop Color="#15191A" Offset="0"/>
-                            <GradientStop Color="#0E1112" Offset="1"/>
-                        </LinearGradientBrush>
-                    </Border.Background>
                     <StackPanel Orientation="Horizontal">
                         <Button x:Name="FilesButton"
                                 ToolTip="Files"
@@ -461,7 +451,7 @@
 
                 <Rectangle x:Name="ChipSeparator"
                            Grid.Column="1"
-                           Width="1" Fill="#252525"
+                           Width="1" Fill="#14FFFFFF"
                            Margin="7,8,9,8" VerticalAlignment="Stretch"/>
 
                 <Grid x:Name="WindowChipsOverlayGrid"
@@ -521,12 +511,12 @@
                                         <Style.Triggers>
                                             <!-- IsMinimized first; IsActive overrides if both true -->
                                             <DataTrigger Binding="{Binding IsMinimized}" Value="True">
-                                                <Setter Property="Foreground" Value="#4E4E4E"/>
+                                                <Setter Property="Foreground" Value="#59C8CDD6"/>
                                                 <Setter Property="Opacity" Value="0.68"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                <Setter Property="Background" Value="#202526"/>
-                                                <Setter Property="Foreground" Value="#E2E2E2"/>
+                                                <Setter Property="Background" Value="#293DDC97"/>
+                                                <Setter Property="Foreground" Value="#EEF1F5"/>
                                                 <Setter Property="Opacity" Value="1"/>
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -541,7 +531,7 @@
                     <Rectangle x:Name="WindowChipDropCue"
                                Width="3" Height="16"
                                RadiusX="1" RadiusY="1"
-                               Fill="#B7D1D7"
+                               Fill="#3DDC97"
                                Opacity="0.95"
                                HorizontalAlignment="Left"
                                VerticalAlignment="Center"
@@ -555,9 +545,9 @@
                                Visibility="Collapsed">
                         <Rectangle.Fill>
                             <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                <GradientStop Color="#D908090A" Offset="0"/>
-                                <GradientStop Color="#9008090A" Offset="0.40"/>
-                                <GradientStop Color="#0008090A" Offset="1"/>
+                                <GradientStop Color="#D90A0C10" Offset="0"/>
+                                <GradientStop Color="#900A0C10" Offset="0.40"/>
+                                <GradientStop Color="#000A0C10" Offset="1"/>
                             </LinearGradientBrush>
                         </Rectangle.Fill>
                     </Rectangle>
@@ -569,9 +559,9 @@
                                Visibility="Collapsed">
                         <Rectangle.Fill>
                             <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                <GradientStop Color="#0008090A" Offset="0"/>
-                                <GradientStop Color="#9008090A" Offset="0.60"/>
-                                <GradientStop Color="#D908090A" Offset="1"/>
+                                <GradientStop Color="#000A0C10" Offset="0"/>
+                                <GradientStop Color="#900A0C10" Offset="0.60"/>
+                                <GradientStop Color="#D90A0C10" Offset="1"/>
                             </LinearGradientBrush>
                         </Rectangle.Fill>
                     </Rectangle>
@@ -581,6 +571,5 @@
         </Grid>
 
         </DockPanel>
-        </Border>
     </Border>
 </Window>

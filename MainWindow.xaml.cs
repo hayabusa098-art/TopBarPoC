@@ -370,9 +370,11 @@ public partial class TopBarWindow : Window
 
         if (!double.IsFinite(available) || available <= 0) return;
 
-        double chipWidth = Math.Clamp(available / n - 3.0, 56.0, 110.0);
+        double chipWidth = available / n - 3.0;
         foreach (var vm in _chipVms)
-            vm.Width = chipWidth;
+            vm.Width = vm.IsActive
+                ? Math.Clamp(chipWidth, 68.0, 120.0)
+                : Math.Clamp(chipWidth, 52.0,  95.0);
     }
 
     // ── Window switcher ───────────────────────────────────────────────────────
@@ -567,6 +569,7 @@ public partial class TopBarWindow : Window
         foreach (var vm in _chipVms)
             vm.IsActive = vm.Handles.Contains(_lastExternalForeground);
 
+        RecalcChipWidth();
         RevealActiveChipIfNeeded();
     }
 
@@ -863,8 +866,11 @@ public partial class TopBarWindow : Window
 
             // Build17: optimistic active update — instant chip highlight on success
             if (sfwOk)
+            {
                 foreach (var vm in _chipVms)
                     vm.IsActive = vm.Handles.Contains(hwnd);
+                RecalcChipWidth();
+            }
 
             // Build16: one-shot 50ms retry if SFW failed or foreground did not switch
             if (!sfwOk || !fgMatch)
@@ -1111,8 +1117,11 @@ public partial class TopBarWindow : Window
 
         // Build17: optimistic active update — instant chip highlight on success
         if (sfwOk)
+        {
             foreach (var vm in _chipVms)
                 vm.IsActive = vm.Handles.Contains(hwnd);
+            RecalcChipWidth();
+        }
 
         // Build16: one-shot 50ms retry if SFW failed or foreground did not switch
         if (!sfwOk || !fgMatch)
