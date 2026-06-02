@@ -20,8 +20,7 @@ namespace TopBarPoC;
 // Bar height is configured in DIPs (device-independent pixels). Physical pixels = DIP height * dpiScale per monitor.
 // Known limitations (out of MVP scope):
 //   - Monitor hot-plug / disconnect after startup is not handled; restart required.
-//   - Runtime DPI change (display scaling slider) is not handled; restart required.
-//   - Runtime resolution change is not handled; restart required.
+//   - Runtime display scaling / resolution changes refresh existing monitor bars only.
 //   - If Windows taskbar occupies the top edge, TopBar is placed below it (acceptable).
 //   - Full-screen exclusive apps: AppBar z-order policy not implemented; bar may be hidden.
 public partial class TopBarWindow : Window
@@ -153,13 +152,21 @@ public partial class TopBarWindow : Window
             _displayRefreshQueued = false;
             if (!IsLoaded || !_appBarRegistered) return;
 
-            _screen = WinFormsScreen.AllScreens.FirstOrDefault(
+            var oldScreen = _screen;
+            var refreshedScreen = WinFormsScreen.AllScreens.FirstOrDefault(
                 screen => screen.DeviceName.Equals(
-                    _screen.DeviceName, StringComparison.OrdinalIgnoreCase)) ?? _screen;
+                    oldScreen.DeviceName, StringComparison.OrdinalIgnoreCase));
+            bool usedFallback = refreshedScreen is null;
+            _screen = refreshedScreen ?? oldScreen;
+
+            Debug.WriteLine(
+                $"[DisplayRefresh] old={oldScreen.DeviceName} bounds={oldScreen.Bounds} " +
+                $"refreshed={_screen.DeviceName} bounds={_screen.Bounds} fallback={usedFallback}");
 
             Width = _screen.Bounds.Width / GetDpiScale();
             RefreshPosition();
             RecalcChipWidth();
+            QueueWindowChipOverflowFadeRefresh();
         }));
     }
 
@@ -289,6 +296,8 @@ public partial class TopBarWindow : Window
                          - ChipSeparator.Margin.Left
                          - ChipSeparator.Margin.Right;
 
+        if (!double.IsFinite(available) || available <= 0) return;
+
         _chipWidth = Math.Clamp(available / n - 3.0, 56.0, 110.0);
         foreach (var vm in _chipVms)
             vm.Width = _chipWidth;
@@ -391,6 +400,7 @@ public partial class TopBarWindow : Window
             }).ToList();
             WindowChips.ItemsSource = _chipVms;
             RecalcChipWidth();
+            QueueWindowChipOverflowFadeRefresh();
         }
 
         // Sync IsMinimized and Title via INPC (no ItemsSource rebind needed)
@@ -433,6 +443,9 @@ public partial class TopBarWindow : Window
                 ? Visibility.Visible
                 : Visibility.Collapsed;
     }
+
+    private void QueueWindowChipOverflowFadeRefresh()
+        => Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(RefreshWindowChipOverflowFades));
 
     private void ChipButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -495,6 +508,7 @@ public partial class TopBarWindow : Window
 
         _prevWindows = [];
         RefreshWindowChips();
+        QueueWindowChipOverflowFadeRefresh();
         e.Effects = DragDropEffects.Move;
         e.Handled = true;
     }
@@ -530,6 +544,7 @@ public partial class TopBarWindow : Window
             if (WindowChips.ItemContainerGenerator.ContainerFromItem(vm) is not FrameworkElement container) return;
             container.BringIntoView();
             _lastRevealedForeground = hwnd;
+            QueueWindowChipOverflowFadeRefresh();
         }));
     }
 
