@@ -42,6 +42,8 @@ public partial class TopBarWindow : Window
     private IntPtr _lastRevealedForeground;
     private IntPtr _dragCandidateHwnd;
     private IntPtr _suppressClickHwnd;
+    private Button? _dropCueButton;
+    private bool _dropCueAfter;
     private System.Windows.Point _dragStartPoint;
     private IntPtr _clickSnapshot = IntPtr.Zero;
 
@@ -472,12 +474,15 @@ public partial class TopBarWindow : Window
 
         _dragCandidateHwnd = IntPtr.Zero;
         var data = new DataObject("TopBarPoC.WindowChipHwnd", hwnd.ToInt64());
-        if (DragDrop.DoDragDrop(btn, data, DragDropEffects.Move) == DragDropEffects.Move)
+        var effect = DragDrop.DoDragDrop(btn, data, DragDropEffects.Move);
+        ClearWindowChipDropCue();
+        if (effect == DragDropEffects.Move)
             _suppressClickHwnd = hwnd;
     }
 
     private void WindowChipsScrollViewer_Drop(object sender, DragEventArgs e)
     {
+        ClearWindowChipDropCue();
         if (!e.Data.GetDataPresent("TopBarPoC.WindowChipHwnd") ||
             e.Data.GetData("TopBarPoC.WindowChipHwnd") is not long value)
             return;
@@ -515,9 +520,57 @@ public partial class TopBarWindow : Window
 
     private void WindowChipsScrollViewer_DragOver(object sender, DragEventArgs e)
     {
-        if (!e.Data.GetDataPresent("TopBarPoC.WindowChipHwnd")) return;
+        if (!e.Data.GetDataPresent("TopBarPoC.WindowChipHwnd") ||
+            e.Data.GetData("TopBarPoC.WindowChipHwnd") is not long value)
+        {
+            ClearWindowChipDropCue();
+            return;
+        }
+
+        var target = FindAncestor<Button>(e.OriginalSource as DependencyObject);
+        if (target?.Tag is IntPtr targetHwnd && targetHwnd == (IntPtr)value)
+        {
+            ClearWindowChipDropCue();
+            e.Effects = DragDropEffects.Move;
+            e.Handled = true;
+            return;
+        }
+
+        if (target?.Tag is IntPtr)
+            SetWindowChipDropCue(target, e.GetPosition(target).X >= target.ActualWidth / 2);
+        else
+            ClearWindowChipDropCue();
+
         e.Effects = DragDropEffects.Move;
         e.Handled = true;
+    }
+
+    private void WindowChipsScrollViewer_DragLeave(object sender, DragEventArgs e)
+        => ClearWindowChipDropCue();
+
+    private void SetWindowChipDropCue(Button target, bool after)
+    {
+        if (_dropCueButton == target && _dropCueAfter == after) return;
+
+        ClearWindowChipDropCue();
+        _dropCueButton = target;
+        _dropCueAfter = after;
+        SetWindowChipDropCueVisibility(target, after ? "dropAfterCue" : "dropBeforeCue", Visibility.Visible);
+    }
+
+    private void ClearWindowChipDropCue()
+    {
+        if (_dropCueButton is null) return;
+
+        SetWindowChipDropCueVisibility(_dropCueButton, "dropBeforeCue", Visibility.Collapsed);
+        SetWindowChipDropCueVisibility(_dropCueButton, "dropAfterCue", Visibility.Collapsed);
+        _dropCueButton = null;
+    }
+
+    private static void SetWindowChipDropCueVisibility(Button target, string name, Visibility visibility)
+    {
+        if (target.Template.FindName(name, target) is FrameworkElement cue)
+            cue.Visibility = visibility;
     }
 
     private static T? FindAncestor<T>(DependencyObject? source) where T : DependencyObject
