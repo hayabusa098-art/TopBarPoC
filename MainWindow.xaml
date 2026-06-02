@@ -118,46 +118,88 @@
                                            FontSize="{TemplateBinding FontSize}"/>
                                 <Rectangle x:Name="activeDot"
                                            Grid.ColumnSpan="2"
-                                           Width="16" Height="2"
+                                           Width="18" Height="2"
                                            RadiusX="1" RadiusY="1"
-                                           Fill="#7899A2"
+                                           Fill="#86A8B1"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Bottom"
                                            Margin="0,0,0,2"
                                            Visibility="Collapsed"/>
                                 <Rectangle x:Name="dropBeforeCue"
                                            Grid.ColumnSpan="2"
-                                           Width="2" Height="16"
+                                           Width="3" Height="16"
                                            RadiusX="1" RadiusY="1"
-                                           Fill="#A6C0C7"
+                                           Fill="#B7D1D7"
+                                           Opacity="0.95"
                                            HorizontalAlignment="Left"
                                            VerticalAlignment="Center"
+                                           Margin="2,0,0,0"
                                            IsHitTestVisible="False"
                                            Visibility="Collapsed"/>
                                 <Rectangle x:Name="dropAfterCue"
                                            Grid.ColumnSpan="2"
-                                           Width="2" Height="16"
+                                           Width="3" Height="16"
                                            RadiusX="1" RadiusY="1"
-                                           Fill="#A6C0C7"
+                                           Fill="#B7D1D7"
+                                           Opacity="0.95"
                                            HorizontalAlignment="Right"
                                            VerticalAlignment="Center"
+                                           Margin="0,0,2,0"
                                            IsHitTestVisible="False"
                                            Visibility="Collapsed"/>
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#1C1C1C"/>
-                                <Setter TargetName="label"  Property="Foreground" Value="#D4D4D4"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#282828"/>
+                                <Setter TargetName="border" Property="Background" Value="#1A1D1E"/>
+                                <Setter TargetName="label"  Property="Foreground" Value="#D4D8D9"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard FillBehavior="Stop">
+                                            <ColorAnimation Storyboard.TargetName="border"
+                                                            Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
+                                                            From="#121212" To="#1A1D1E"
+                                                            Duration="0:0:0.08"/>
+                                            <ColorAnimation Storyboard.TargetName="label"
+                                                            Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
+                                                            From="#8E8E8E" To="#D4D8D9"
+                                                            Duration="0:0:0.08"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard FillBehavior="Stop">
+                                            <ColorAnimation Storyboard.TargetName="border"
+                                                            Storyboard.TargetProperty="(Border.Background).(SolidColorBrush.Color)"
+                                                            From="#1A1D1E" To="#121212"
+                                                            Duration="0:0:0.12"/>
+                                            <ColorAnimation Storyboard.TargetName="label"
+                                                            Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
+                                                            From="#D4D8D9" To="#8E8E8E"
+                                                            Duration="0:0:0.12"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <DataTrigger Binding="{Binding IsActive}" Value="True">
                                 <Setter TargetName="activeDot" Property="Visibility" Value="Visible"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#2C3639"/>
+                                <Setter TargetName="border" Property="Background" Value="#202526"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#354247"/>
                                 <Setter TargetName="border" Property="BorderThickness" Value="1"/>
                             </DataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsActive}" Value="True"/>
+                                    <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#263034"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#405157"/>
+                                <Setter TargetName="label" Property="Foreground" Value="#EAF1F2"/>
+                            </MultiDataTrigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#30383A"/>
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -451,7 +493,7 @@
                                                 <Setter Property="Opacity" Value="0.68"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                <Setter Property="Background" Value="#222222"/>
+                                                <Setter Property="Background" Value="#202526"/>
                                                 <Setter Property="Foreground" Value="#E2E2E2"/>
                                                 <Setter Property="Opacity" Value="1"/>
                                             </DataTrigger>
@@ -471,7 +513,8 @@
                                Visibility="Collapsed">
                         <Rectangle.Fill>
                             <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                <GradientStop Color="#F008090A" Offset="0"/>
+                                <GradientStop Color="#D908090A" Offset="0"/>
+                                <GradientStop Color="#9008090A" Offset="0.40"/>
                                 <GradientStop Color="#0008090A" Offset="1"/>
                             </LinearGradientBrush>
                         </Rectangle.Fill>
@@ -485,7 +528,8 @@
                         <Rectangle.Fill>
                             <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
                                 <GradientStop Color="#0008090A" Offset="0"/>
-                                <GradientStop Color="#F008090A" Offset="1"/>
+                                <GradientStop Color="#9008090A" Offset="0.60"/>
+                                <GradientStop Color="#D908090A" Offset="1"/>
                             </LinearGradientBrush>
                         </Rectangle.Fill>
                     </Rectangle>
