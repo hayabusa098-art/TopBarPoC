@@ -38,7 +38,6 @@ public partial class TopBarWindow : Window
     private readonly Dictionary<IntPtr, ImageSource?> _iconCache = new();
     private readonly Dictionary<string, IntPtr> _lastGroupCycleHandles =
         new(StringComparer.OrdinalIgnoreCase);
-    private          double             _chipWidth   = 110.0;
     private bool             _appBarRegistered;
     private bool             _closing;
     private bool             _displayRefreshQueued;
@@ -361,7 +360,7 @@ public partial class TopBarWindow : Window
     private void RecalcChipWidth()
     {
         int n = _chipVms.Count;
-        if (n == 0) { _chipWidth = 110.0; return; }
+        if (n == 0) return;
 
         double available = CenterGrid.ActualWidth
                          - LauncherPill.ActualWidth
@@ -371,9 +370,9 @@ public partial class TopBarWindow : Window
 
         if (!double.IsFinite(available) || available <= 0) return;
 
-        _chipWidth = Math.Clamp(available / n - 3.0, 56.0, 110.0);
+        double chipWidth = Math.Clamp(available / n - 3.0, 56.0, 110.0);
         foreach (var vm in _chipVms)
-            vm.Width = _chipWidth;
+            vm.Width = chipWidth;
     }
 
     // ── Window switcher ───────────────────────────────────────────────────────
@@ -471,7 +470,8 @@ public partial class TopBarWindow : Window
     {
         try
         {
-            string processName = Process.GetProcessById((int)pid).ProcessName;
+            using var process = Process.GetProcessById((int)pid);
+            string processName = process.ProcessName;
             return processName.Equals("TextInputHost",           StringComparison.OrdinalIgnoreCase) ||
                    processName.Equals("dwm",                    StringComparison.OrdinalIgnoreCase) ||
                    processName.Equals("SearchApp",              StringComparison.OrdinalIgnoreCase) ||
@@ -573,8 +573,10 @@ public partial class TopBarWindow : Window
     private void WindowChipsScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (WindowChipsScrollViewer.ScrollableWidth <= 0) return;
+        // Halve the raw delta so one standard notch (120) scrolls ~60 px instead of a full
+        // chip-width-plus; smooth-scroll mice send smaller deltas and remain fine-grained.
         WindowChipsScrollViewer.ScrollToHorizontalOffset(
-            WindowChipsScrollViewer.HorizontalOffset - e.Delta);
+            WindowChipsScrollViewer.HorizontalOffset - e.Delta / 2.0);
         e.Handled = true;
     }
 
@@ -834,7 +836,7 @@ public partial class TopBarWindow : Window
 
             GetWindowThreadProcessId(hwnd, out uint targetPid);
             string targetProc = "(unknown)";
-            try { targetProc = Process.GetProcessById((int)targetPid).ProcessName; } catch { }
+            try { using var p = Process.GetProcessById((int)targetPid); targetProc = p.ProcessName; } catch { }
 
             var fgBefore = GetForegroundWindow();
             var sw16 = Stopwatch.StartNew();
@@ -931,6 +933,8 @@ public partial class TopBarWindow : Window
         }
         if (TryGetOpenNewWindowLaunch(group, out var launch))
         {
+            if (menu.Items.Count > 0)
+                menu.Items.Add(new Separator { Style = (Style)FindResource("ChipContextMenuSeparatorStyle") });
             var item = new MenuItem
             {
                 Header = "Open New Window",

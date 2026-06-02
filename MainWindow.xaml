@@ -267,6 +267,17 @@
             </Setter>
         </Style>
 
+        <Style x:Key="ChipContextMenuSeparatorStyle" TargetType="Separator">
+            <Setter Property="Margin" Value="6,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Separator">
+                        <Rectangle Height="1" Fill="#2A3033"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
     <!--
