@@ -13,7 +13,7 @@ internal sealed class WindowChipVm : INotifyPropertyChanged
     public          ImageSource? Icon   { get; init; }
     public          bool         IsGrouped => Handles.Length > 1;
     public          string       ToolTipText => IsGrouped
-        ? $"{Title}\nClick to choose window\nDrag to reorder"
+        ? $"{Title}\nClick to choose window\nCtrl+Click to cycle\nDrag to reorder"
         : $"{Title} - Drag to reorder";
 
     private string _title = "";

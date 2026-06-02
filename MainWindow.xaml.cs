@@ -360,6 +360,7 @@ public partial class TopBarWindow : Window
         var shellWnd = GetShellWindow();
         var selfPid  = (uint)Environment.ProcessId;
         var appIdentityCache = new Dictionary<uint, (string Key, string Label)>();
+        var pidDenyCache     = new Dictionary<uint, bool>();  // true = denied system process
 
         EnumWindowsProc callback = (hWnd, _) =>
         {
@@ -369,16 +370,23 @@ public partial class TopBarWindow : Window
             var textLen = GetWindowTextLength(hWnd);
             if (textLen == 0) return true;
 
-            GetWindowThreadProcessId(hWnd, out uint pid);
-            if (pid == selfPid) return true;
-            if (IsCloaked(hWnd) || IsDeniedSystemProcess(pid)) return true;
-
+            // Style checks are cheap Win32 calls; filter tool/owned windows before the
+            // more expensive IsCloaked (DWM COM) and IsDeniedSystemProcess (process handle).
             int  exStyle      = GetWindowLong(hWnd, GWL_EXSTYLE);
             bool isToolWindow = (exStyle & WS_EX_TOOLWINDOW) != 0;
             bool isAppWindow  = (exStyle & WS_EX_APPWINDOW)  != 0;
             bool hasOwner     = NativeMethods.GetWindow(hWnd, GW_OWNER) != IntPtr.Zero;
-
             if (!isAppWindow && (hasOwner || isToolWindow)) return true;
+
+            GetWindowThreadProcessId(hWnd, out uint pid);
+            if (pid == selfPid) return true;
+            if (IsCloaked(hWnd)) return true;
+
+            // Cache the deny result per PID to avoid repeated Process.GetProcessById
+            // calls for apps with multiple windows (e.g. File Explorer, browsers).
+            if (!pidDenyCache.TryGetValue(pid, out bool isDenied))
+                pidDenyCache[pid] = isDenied = IsDeniedSystemProcess(pid);
+            if (isDenied) return true;
 
             var sb = new StringBuilder(textLen + 1);
             GetWindowText(hWnd, sb, sb.Capacity);
@@ -518,6 +526,9 @@ public partial class TopBarWindow : Window
             WindowChips.ItemsSource = _chipVms;
             RecalcChipWidth();
             QueueWindowChipOverflowFadeRefresh();
+            // ItemsSource replacement resets scroll position; clear the reveal cache so
+            // RevealActiveChipIfNeeded re-scrolls the active chip into view.
+            _lastRevealedForeground = IntPtr.Zero;
         }
 
         // Sync IsMinimized and Title via INPC (no ItemsSource rebind needed)
