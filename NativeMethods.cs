@@ -105,7 +105,9 @@ internal static class NativeMethods
     // ── Constants ─────────────────────────────────────────────────────────────
     internal const uint ABM_NEW      = 0, ABM_REMOVE  = 1;
     internal const uint ABM_QUERYPOS = 2, ABM_SETPOS  = 3;
+    internal const uint ABM_GETSTATE = 4;
     internal const uint ABM_ACTIVATE = 6, ABM_WINDOWPOSCHANGED = 9;
+    internal const uint ABS_AUTOHIDE = 0x0001;
     internal const uint ABE_TOP      = 1;
     internal const uint ABN_STATECHANGE = 0, ABN_POSCHANGED = 1, ABN_FULLSCREENAPP = 2;
     internal const uint SWP_NOACTIVATE = 0x0010, SWP_NOZORDER = 0x0004;

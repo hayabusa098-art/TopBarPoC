@@ -40,6 +40,7 @@ public partial class TopBarWindow : Window
         new(StringComparer.OrdinalIgnoreCase);
     private          double             _chipWidth   = 110.0;
     private bool             _appBarRegistered;
+    private bool             _closing;
     private bool             _displayRefreshQueued;
     private bool             _shellStateRefreshQueued;
     private DispatcherTimer? _shellSettleTimer;
@@ -74,6 +75,7 @@ public partial class TopBarWindow : Window
         Loaded  += OnLoaded;
         Closing += (_, _) =>
         {
+            _closing = true;
             _clock?.Stop();
             _windowPollTimer?.Stop();
             _shellSettleTimer?.Stop();
@@ -134,10 +136,18 @@ public partial class TopBarWindow : Window
 
     private void RefreshPosition()
     {
-        if (!_appBarRegistered) return;
         var hwnd     = new WindowInteropHelper(this).Handle;
         int heightPx = PhysicalBarHeight();
-        QueryAndApplyPosition(hwnd, heightPx);
+        if (_appBarRegistered)
+        {
+            QueryAndApplyPosition(hwnd, heightPx);
+            return;
+        }
+        // Fallback: AppBar shell registration unavailable; maintain position directly.
+        SetWindowPos(hwnd, IntPtr.Zero,
+            _screen.Bounds.X, _screen.Bounds.Y,
+            _screen.Bounds.Width, heightPx,
+            SWP_NOACTIVATE | SWP_NOZORDER);
     }
 
     private void SystemEvents_DisplaySettingsChanged(object? sender, EventArgs e)
@@ -157,7 +167,7 @@ public partial class TopBarWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
         {
             _displayRefreshQueued = false;
-            if (!IsLoaded || !_appBarRegistered) return;
+            if (!IsLoaded) return;
 
             var oldScreen = _screen;
             var refreshedScreen = WinFormsScreen.AllScreens.FirstOrDefault(
@@ -189,7 +199,7 @@ public partial class TopBarWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
         {
             _shellStateRefreshQueued = false;
-            if (!IsLoaded || !_appBarRegistered) return;
+            if (!IsLoaded) return;
             Debug.WriteLine("[ShellStateRefresh] re-querying AppBar position");
             RefreshPosition();
             // Lazy-init reusable settle timer; Stop/Start restarts the window on rapid bursts.
@@ -200,7 +210,7 @@ public partial class TopBarWindow : Window
                 _shellSettleTimer.Tick += (_, _) =>
                 {
                     _shellSettleTimer.Stop();
-                    if (!IsLoaded || !_appBarRegistered) return;
+                    if (!IsLoaded) return;
                     Debug.WriteLine("[ShellStateRefresh.settle] re-querying AppBar position");
                     RefreshPosition();
                 };
@@ -246,9 +256,13 @@ public partial class TopBarWindow : Window
             switch ((uint)wParam)
             {
                 case ABN_STATECHANGE:
-                    // Taskbar auto-hide state changed; queue debounced reposition with settle delay.
+                {
+                    var sd = new APPBARDATA { cbSize = (uint)Marshal.SizeOf<APPBARDATA>(), hWnd = hwnd };
+                    uint abs = (uint)SHAppBarMessage(ABM_GETSTATE, ref sd);
+                    Debug.WriteLine($"[ABN_STATECHANGE] ABS=0x{abs:X} autoHide={(abs & ABS_AUTOHIDE) != 0}");
                     QueueShellStateRefresh();
                     break;
+                }
                 case ABN_POSCHANGED:
                     // Skip re-query. ABM_SETPOS itself triggers ABN_POSCHANGED, and
                     // re-querying while our own bar is registered causes the shell to return
@@ -264,9 +278,14 @@ public partial class TopBarWindow : Window
         }
         else if (uMsg == WM_TASKBARCREATED)
         {
-            // Explorer restarted; shell lost our registration — re-register
-            _appBarRegistered = false;
-            RegisterAppBar();
+            // Explorer restarted; shell lost our registration — re-register.
+            // Guard: if the window is already closing, skip to avoid leaking a
+            // ghost AppBar reservation (UnregisterAppBar already ran in Closing).
+            if (!_closing)
+            {
+                _appBarRegistered = false;
+                RegisterAppBar();
+            }
         }
         else if (msg == WM_DISPLAYCHANGE || msg == WM_DPICHANGED)
         {
@@ -274,6 +293,10 @@ public partial class TopBarWindow : Window
         }
         else if (msg == WM_SETTINGCHANGE)
         {
+            string? lParamStr = null;
+            if (lParam != IntPtr.Zero)
+                try { lParamStr = Marshal.PtrToStringAuto(lParam); } catch { }
+            Debug.WriteLine($"[WM_SETTINGCHANGE] wParam=0x{(uint)wParam:X4} lParam=\"{lParamStr ?? "(null)"}\"");
             QueueShellStateRefresh();
         }
         else if (msg == WM_MOUSEACTIVATE)
