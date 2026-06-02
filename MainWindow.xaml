@@ -125,28 +125,6 @@
                                            VerticalAlignment="Bottom"
                                            Margin="0,0,0,2"
                                            Visibility="Collapsed"/>
-                                <Rectangle x:Name="dropBeforeCue"
-                                           Grid.ColumnSpan="2"
-                                           Width="3" Height="16"
-                                           RadiusX="1" RadiusY="1"
-                                           Fill="#B7D1D7"
-                                           Opacity="0.95"
-                                           HorizontalAlignment="Left"
-                                           VerticalAlignment="Center"
-                                           Margin="2,0,0,0"
-                                           IsHitTestVisible="False"
-                                           Visibility="Collapsed"/>
-                                <Rectangle x:Name="dropAfterCue"
-                                           Grid.ColumnSpan="2"
-                                           Width="3" Height="16"
-                                           RadiusX="1" RadiusY="1"
-                                           Fill="#B7D1D7"
-                                           Opacity="0.95"
-                                           HorizontalAlignment="Right"
-                                           VerticalAlignment="Center"
-                                           Margin="0,0,2,0"
-                                           IsHitTestVisible="False"
-                                           Visibility="Collapsed"/>
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -245,6 +223,43 @@
                             <Trigger Property="IsHighlighted" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="#1A2224"/>
                                 <Setter Property="Foreground" Value="#A6C0C7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="GroupedSelectorCloseButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#7C8082"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="4">
+                            <TextBlock Text="{TemplateBinding Content}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       FontFamily="{TemplateBinding FontFamily}"
+                                       FontSize="{TemplateBinding FontSize}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#CC2222"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#991111"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -438,7 +453,8 @@
                            Width="1" Fill="#252525"
                            Margin="7,8,9,8" VerticalAlignment="Stretch"/>
 
-                <Grid Grid.Column="2">
+                <Grid x:Name="WindowChipsOverlayGrid"
+                      Grid.Column="2">
                     <ScrollViewer x:Name="WindowChipsScrollViewer"
                                   AllowDrop="True"
                                   HorizontalScrollBarVisibility="Hidden"
@@ -510,6 +526,16 @@
                     </ItemsControl.ItemTemplate>
                     </ItemsControl>
                     </ScrollViewer>
+
+                    <Rectangle x:Name="WindowChipDropCue"
+                               Width="3" Height="16"
+                               RadiusX="1" RadiusY="1"
+                               Fill="#B7D1D7"
+                               Opacity="0.95"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Center"
+                               IsHitTestVisible="False"
+                               Visibility="Collapsed"/>
 
                     <Rectangle x:Name="WindowChipsLeftFade"
                                Width="14"

@@ -34,6 +34,7 @@ public partial class TopBarWindow : Window
     private          List<WindowChipVm> _chipVms     = [];
     private          List<WindowInfo>   _prevWindows = [];
     private static readonly List<IntPtr> _windowOrder = [];
+    private static readonly List<string> _appOrder = [];
     private readonly Dictionary<IntPtr, ImageSource?> _iconCache = new();
     private readonly Dictionary<string, IntPtr> _lastGroupCycleHandles =
         new(StringComparer.OrdinalIgnoreCase);
@@ -45,8 +46,6 @@ public partial class TopBarWindow : Window
     private IntPtr _lastRevealedForeground;
     private IntPtr _dragCandidateHwnd;
     private IntPtr _suppressClickHwnd;
-    private Button? _dropCueButton;
-    private bool _dropCueAfter;
     private System.Windows.Point _dragStartPoint;
     private IntPtr _clickSnapshot = IntPtr.Zero;
 
@@ -414,6 +413,10 @@ public partial class TopBarWindow : Window
             _lastExternalForeground = foreground;
         var enumeratedWindows = EnumerateWindows();
         var byHandle = enumeratedWindows.ToDictionary(w => w.Handle);
+        var previousAppOrder = _prevWindows
+            .Select(w => w.AppKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         _windowOrder.RemoveAll(h => !byHandle.ContainsKey(h));
         var orderedHandles = new HashSet<IntPtr>(_windowOrder);
@@ -421,7 +424,21 @@ public partial class TopBarWindow : Window
             if (orderedHandles.Add(window.Handle))
                 _windowOrder.Add(window.Handle);
 
-        var windows = _windowOrder.Select(h => byHandle[h]).ToList();
+        var orderedWindows = _windowOrder.Select(h => byHandle[h]).ToList();
+        var windowsByApp = orderedWindows
+            .GroupBy(w => w.AppKey, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.OrdinalIgnoreCase);
+        if (_appOrder.Count == 0)
+            _appOrder.AddRange(previousAppOrder.Where(windowsByApp.ContainsKey));
+        _appOrder.RemoveAll(appKey => !windowsByApp.ContainsKey(appKey));
+        var stableAppKeys = new HashSet<string>(_appOrder, StringComparer.OrdinalIgnoreCase);
+        foreach (var window in orderedWindows)
+            if (stableAppKeys.Add(window.AppKey))
+                _appOrder.Add(window.AppKey);
+
+        var windows = _appOrder.SelectMany(appKey => windowsByApp[appKey]).ToList();
+        _windowOrder.Clear();
+        _windowOrder.AddRange(windows.Select(w => w.Handle));
 
         // Structural change: handle set or titles changed — requires full rebuild.
         // IsMinimized-only changes are handled via INPC without ItemsSource rebind.
@@ -570,6 +587,13 @@ public partial class TopBarWindow : Window
         if (!inserted)
             _windowOrder.AddRange(sourceHandles);
 
+        var appKeyByHandle = _prevWindows.ToDictionary(window => window.Handle, window => window.AppKey);
+        _appOrder.Clear();
+        _appOrder.AddRange(_windowOrder
+            .Where(appKeyByHandle.ContainsKey)
+            .Select(hwnd => appKeyByHandle[hwnd])
+            .Distinct(StringComparer.OrdinalIgnoreCase));
+
         _prevWindows = [];
         RefreshWindowChips();
         QueueWindowChipOverflowFadeRefresh();
@@ -597,8 +621,6 @@ public partial class TopBarWindow : Window
 
         if (target?.Tag is IntPtr)
             SetWindowChipDropCue(target, e.GetPosition(target).X >= target.ActualWidth / 2);
-        else
-            ClearWindowChipDropCue();
 
         const double edgeZone = 24.0;
         const double scrollIncrement = 24.0;
@@ -615,32 +637,26 @@ public partial class TopBarWindow : Window
     }
 
     private void WindowChipsScrollViewer_DragLeave(object sender, DragEventArgs e)
-        => ClearWindowChipDropCue();
+    {
+        var point = e.GetPosition(WindowChipsScrollViewer);
+        bool isInside =
+            point.X >= 0 && point.X <= WindowChipsScrollViewer.ActualWidth &&
+            point.Y >= 0 && point.Y <= WindowChipsScrollViewer.ActualHeight;
+
+        if (!isInside)
+            ClearWindowChipDropCue();
+    }
 
     private void SetWindowChipDropCue(Button target, bool after)
     {
-        if (_dropCueButton == target && _dropCueAfter == after) return;
-
-        ClearWindowChipDropCue();
-        _dropCueButton = target;
-        _dropCueAfter = after;
-        SetWindowChipDropCueVisibility(target, after ? "dropAfterCue" : "dropBeforeCue", Visibility.Visible);
+        var chipPosition = target.TranslatePoint(new System.Windows.Point(), WindowChipsOverlayGrid);
+        double cueX = after ? chipPosition.X + target.ActualWidth : chipPosition.X - 3.0;
+        WindowChipDropCue.Margin = new Thickness(cueX, 0, 0, 0);
+        WindowChipDropCue.Visibility = Visibility.Visible;
     }
 
     private void ClearWindowChipDropCue()
-    {
-        if (_dropCueButton is null) return;
-
-        SetWindowChipDropCueVisibility(_dropCueButton, "dropBeforeCue", Visibility.Collapsed);
-        SetWindowChipDropCueVisibility(_dropCueButton, "dropAfterCue", Visibility.Collapsed);
-        _dropCueButton = null;
-    }
-
-    private static void SetWindowChipDropCueVisibility(Button target, string name, Visibility visibility)
-    {
-        if (target.Template.FindName(name, target) is FrameworkElement cue)
-            cue.Visibility = visibility;
-    }
+        => WindowChipDropCue.Visibility = Visibility.Collapsed;
 
     private static T? FindAncestor<T>(DependencyObject? source) where T : DependencyObject
     {
@@ -802,9 +818,31 @@ public partial class TopBarWindow : Window
         foreach (var hwnd in group.Handles)
         {
             var info = _prevWindows.FirstOrDefault(window => window.Handle == hwnd);
+            var header = new Grid();
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var title = new TextBlock
+            {
+                Text = info.Handle == IntPtr.Zero ? $"0x{hwnd:X8}" : info.Title,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0),
+            };
+            header.Children.Add(title);
+
+            var closeButton = new Button
+            {
+                Content = "\u00D7",
+                Tag = hwnd,
+                Style = (Style)FindResource("GroupedSelectorCloseButtonStyle"),
+            };
+            closeButton.Click += GroupWindowCloseButton_Click;
+            Grid.SetColumn(closeButton, 1);
+            header.Children.Add(closeButton);
+
             var item = new MenuItem
             {
-                Header = info.Handle == IntPtr.Zero ? $"0x{hwnd:X8}" : info.Title,
+                Header = header,
                 Tag = hwnd,
                 Style = (Style)FindResource("ChipContextMenuItemStyle"),
             };
@@ -827,8 +865,27 @@ public partial class TopBarWindow : Window
 
     private void GroupWindowMenuItem_Click(object sender, RoutedEventArgs e)
     {
+        if (e.OriginalSource is DependencyObject source &&
+            FindAncestor<Button>(source) is Button { Tag: IntPtr })
+            return;
+
         if (sender is MenuItem { Tag: IntPtr hwnd } && IsWindow(hwnd))
             RestoreAndActivateWindow(hwnd, "[GroupChipSelect]");
+    }
+
+    private void GroupWindowCloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is not Button { Tag: IntPtr hwnd } button) return;
+
+        if (FindAncestor<MenuItem>(button) is not MenuItem item ||
+            ContextMenu.ItemsControlFromItemContainer(item) is not ContextMenu menu)
+            return;
+
+        menu.IsOpen = false;
+
+        if (IsWindow(hwnd))
+            PostMessage(hwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
     }
 
     private void CycleGroupedWindowFocus(WindowChipVm group)
