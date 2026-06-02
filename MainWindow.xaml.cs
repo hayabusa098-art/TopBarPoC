@@ -437,11 +437,13 @@ public partial class TopBarWindow : Window
     {
         if (WindowChipsLeftFade is null || WindowChipsRightFade is null) return;
 
-        WindowChipsLeftFade.Visibility = WindowChipsScrollViewer.HorizontalOffset > 0
+        const double endpointTolerance = 0.5;
+        WindowChipsLeftFade.Visibility = WindowChipsScrollViewer.HorizontalOffset > endpointTolerance
             ? Visibility.Visible
             : Visibility.Collapsed;
         WindowChipsRightFade.Visibility =
-            WindowChipsScrollViewer.HorizontalOffset < WindowChipsScrollViewer.ScrollableWidth
+            WindowChipsScrollViewer.HorizontalOffset <
+            WindowChipsScrollViewer.ScrollableWidth - endpointTolerance
                 ? Visibility.Visible
                 : Visibility.Collapsed;
     }
@@ -540,6 +542,16 @@ public partial class TopBarWindow : Window
             SetWindowChipDropCue(target, e.GetPosition(target).X >= target.ActualWidth / 2);
         else
             ClearWindowChipDropCue();
+
+        const double edgeZone = 24.0;
+        const double scrollIncrement = 24.0;
+        double pointerX = e.GetPosition(WindowChipsScrollViewer).X;
+        if (pointerX <= edgeZone)
+            WindowChipsScrollViewer.ScrollToHorizontalOffset(
+                WindowChipsScrollViewer.HorizontalOffset - scrollIncrement);
+        else if (pointerX >= WindowChipsScrollViewer.ActualWidth - edgeZone)
+            WindowChipsScrollViewer.ScrollToHorizontalOffset(
+                WindowChipsScrollViewer.HorizontalOffset + scrollIncrement);
 
         e.Effects = DragDropEffects.Move;
         e.Handled = true;
