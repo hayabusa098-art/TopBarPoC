@@ -835,7 +835,7 @@ public partial class TopBarWindow : Window
             return;
 
         var hwnd = (IntPtr)value;
-        var target = FindAncestor<Button>(e.OriginalSource as DependencyObject);
+        var target = FindChipButton(e.OriginalSource as DependencyObject);
         if (target?.Tag is IntPtr sameHwnd && sameHwnd == hwnd)
         {
             e.Effects = DragDropEffects.Move;
@@ -887,7 +887,7 @@ public partial class TopBarWindow : Window
             return;
         }
 
-        var target = FindAncestor<Button>(e.OriginalSource as DependencyObject);
+        var target = FindChipButton(e.OriginalSource as DependencyObject);
         if (target?.Tag is IntPtr targetHwnd && targetHwnd == (IntPtr)value)
         {
             ClearWindowChipDropCue();
@@ -944,6 +944,29 @@ public partial class TopBarWindow : Window
         {
             if (source is T match) return match;
             source = VisualTreeHelper.GetParent(source);
+        }
+        return null;
+    }
+
+    // Extends FindAncestor<Button> with a descendant fallback for the gap-column case.
+    // When the DataTemplate Grid's transparent background is hit (cursor in the gap between chips),
+    // no Button ancestor exists; search descendants to find the chip button in Column 0.
+    private static Button? FindChipButton(DependencyObject? source)
+    {
+        var btn = FindAncestor<Button>(source);
+        if (btn is not null) return btn;
+        return FindDescendantButton(source);
+    }
+
+    private static Button? FindDescendantButton(DependencyObject? node)
+    {
+        if (node is null) return null;
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+        {
+            var child = VisualTreeHelper.GetChild(node, i);
+            if (child is Button { Tag: IntPtr } found) return found;
+            var deeper = FindDescendantButton(child);
+            if (deeper is not null) return deeper;
         }
         return null;
     }
