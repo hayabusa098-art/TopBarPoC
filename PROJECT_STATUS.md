@@ -380,6 +380,67 @@ TB-008 follow-up. Grouped chip preview, hover close button, aspect ratio, fade.
 
 Overflow, scroll, and drag/drop behavior under high chip counts and edge positions.
 
+## Future Design Direction
+
+### Hover Preview Roadmap — Build41+ Concept
+
+#### Current state
+
+Build40 delivers single-window DWM hover preview.
+Grouped chips are intentionally deferred via the `IsGrouped` guard — the hookup point is in place.
+
+#### Planned direction
+
+Follow Windows taskbar hover preview UX closely.
+
+#### Grouped preview concept
+
+Grouped chip hover shows multiple live previews horizontally — one preview card per grouped window.
+
+Candidate layout:
+
+```
+[ preview A ][ preview B ][ preview C ]
+```
+
+Each preview card:
+
+* DWM live thumbnail (client area)
+* Title strip at bottom
+* Activate on click
+* Individual × close button
+
+#### Architecture and polish topics
+
+* Grouped preview container layout (horizontal stack of reusable preview-card controls)
+* Reusable preview-card model (single-window and grouped both use the same card component)
+* WS_EX_NOACTIVATE hardening — required for interactive preview UI (close button, click-to-activate)
+* Aspect ratio preservation (DwmQueryThumbnailSourceSize → letterboxed rcDestination)
+* Optional fade animation (DoubleAnimation on Opacity)
+* Optional glass / transparency treatment (AllowsTransparency + DWM thumbnail validation)
+
+#### Priority intent
+
+Build41 / Hover Preview Polish candidate.
+Investigate before implementation.
+
+---
+
+### TB-001 Remaining Direction
+
+Still open — not marked complete:
+
+* Live DPI validation: scaling change while TopBar is running
+* Monitor hot-plug: disconnect / reconnect after startup
+* Mixed-DPI behavior: per-monitor DPI divergence across multiple monitors
+* Runtime AppBar position validation under live DPI change
+* Non-primary monitor DPI edge cases
+
+Partial hardening delivered in f52f7b2 (hover preview coordinate fix, display-refresh teardown,
+WM_DPICHANGED diagnostic logging). Full live-condition testing not yet performed.
+
+---
+
 ## Known Problems
 
 ### KP-001 Runtime DPI runtime instability
