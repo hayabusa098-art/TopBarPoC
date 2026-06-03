@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Interop;
 using static TopBarPoC.NativeMethods;
 
@@ -6,62 +7,96 @@ namespace TopBarPoC;
 
 public partial class HoverPreviewWindow : Window
 {
-    private IntPtr _thumbnailHandle = IntPtr.Zero;
+    internal const double CardWidthDip = 280.0;
+    internal const double CardHeightDip = 185.0;
+    internal const double CardGapDip = 10.0;
+    private const double TitleHeightDip = 22.0;
+
+    private readonly List<IntPtr> _thumbnailHandles = [];
+    private IReadOnlyList<PreviewCardVm> _cards = [];
 
     public HoverPreviewWindow() => InitializeComponent();
 
-    // EnsureHandle() creates the HWND before Show() so the thumbnail is live
-    // when the window first becomes visible — avoids a dark-window flash.
     internal void ShowForHwnd(IntPtr sourceHwnd, string title, double screenLeft, double screenTop, double dpiScale)
+        => ShowForCards(
+            [
+                new PreviewCardVm
+                {
+                    Hwnd = sourceHwnd,
+                    Title = title,
+                    Activate = _ => { },
+                }
+            ],
+            screenLeft,
+            screenTop,
+            dpiScale);
+
+    internal void ShowForCards(IReadOnlyList<PreviewCardVm> cards, double screenLeft, double screenTop, double dpiScale)
     {
-        ReleaseThumbnail();
-        TitleText.Text = title;
+        ReleaseThumbnails();
+        _cards = cards;
+        CardsHost.ItemsSource = _cards;
+        Width = PreviewWidthForCardCount(_cards.Count);
+        Height = CardHeightDip;
         Left = screenLeft;
-        Top  = screenTop;
+        Top = screenTop;
 
         var helper = new WindowInteropHelper(this);
         helper.EnsureHandle();
 
-        if (DwmRegisterThumbnail(helper.Handle, sourceHwnd, out _thumbnailHandle) != 0)
+        for (int i = 0; i < _cards.Count; i++)
         {
-            // Elevated target or cloaked — show dark preview with title only.
-            _thumbnailHandle = IntPtr.Zero;
-            Show();
-            return;
+            var card = _cards[i];
+            card.ThumbnailAvailable = false;
+            if (DwmRegisterThumbnail(helper.Handle, card.Hwnd, out var thumbnailHandle) != 0)
+                continue;
+
+            int left = (int)Math.Round(i * (CardWidthDip + CardGapDip) * dpiScale);
+            int right = (int)Math.Round((i * (CardWidthDip + CardGapDip) + CardWidthDip) * dpiScale);
+            int bottom = (int)Math.Round((CardHeightDip - TitleHeightDip) * dpiScale);
+            var props = new DWM_THUMBNAIL_PROPERTIES
+            {
+                dwFlags = DWM_TNP_RECTDESTINATION | DWM_TNP_OPACITY | DWM_TNP_VISIBLE | DWM_TNP_SOURCECLIENTAREAONLY,
+                rcDestination = new RECT { Left = left, Top = 0, Right = right, Bottom = bottom },
+                opacity = 255,
+                fVisible = 1,
+                fSourceClientAreaOnly = 1,
+            };
+            DwmUpdateThumbnailProperties(thumbnailHandle, ref props);
+            _thumbnailHandles.Add(thumbnailHandle);
+            card.ThumbnailAvailable = true;
         }
 
-        // rcDestination is in physical pixels (client coordinates).
-        // Width/Height are DIP design values; multiply by dpiScale for physical size.
-        int thumbW = (int)Math.Round(Width         * dpiScale);
-        int thumbH = (int)Math.Round((Height - 22) * dpiScale);
-        var props = new DWM_THUMBNAIL_PROPERTIES
-        {
-            dwFlags              = DWM_TNP_RECTDESTINATION | DWM_TNP_OPACITY | DWM_TNP_VISIBLE | DWM_TNP_SOURCECLIENTAREAONLY,
-            rcDestination        = new RECT { Left = 0, Top = 0, Right = thumbW, Bottom = thumbH },
-            opacity              = 255,
-            fVisible             = 1,
-            fSourceClientAreaOnly = 1,
-        };
-        DwmUpdateThumbnailProperties(_thumbnailHandle, ref props);
         Show();
     }
 
     internal void HidePreview()
     {
-        ReleaseThumbnail();
+        ReleaseThumbnails();
         Hide();
     }
 
     protected override void OnClosed(EventArgs e)
     {
-        ReleaseThumbnail();
+        ReleaseThumbnails();
         base.OnClosed(e);
     }
 
-    private void ReleaseThumbnail()
+    private void PreviewCard_Click(object sender, RoutedEventArgs e)
     {
-        if (_thumbnailHandle == IntPtr.Zero) return;
-        DwmUnregisterThumbnail(_thumbnailHandle);
-        _thumbnailHandle = IntPtr.Zero;
+        if (sender is not Button { DataContext: PreviewCardVm card }) return;
+        card.Activate(card.Hwnd);
+    }
+
+    internal static double PreviewWidthForCardCount(int cardCount)
+        => cardCount <= 0
+            ? 0.0
+            : CardWidthDip * cardCount + CardGapDip * (cardCount - 1);
+
+    private void ReleaseThumbnails()
+    {
+        foreach (var thumbnailHandle in _thumbnailHandles)
+            DwmUnregisterThumbnail(thumbnailHandle);
+        _thumbnailHandles.Clear();
     }
 }

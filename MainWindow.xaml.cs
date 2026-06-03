@@ -56,6 +56,7 @@ public partial class TopBarWindow : Window
     private DispatcherTimer?     _hideTimer;
     private double               _currentChipGap = 3.0;
     private ChipDensityMode _chipDensityMode = ChipDensityMode.Balanced;
+    private const int MaxVisiblePreviewCards = 4;
 
     private enum ChipDensityMode
     {
@@ -790,27 +791,56 @@ public partial class TopBarWindow : Window
     {
         if (hwnd == IntPtr.Zero) return;
         var vm = _chipVms.FirstOrDefault(v => v.Handle == hwnd);
-        if (vm is null || vm.IsGrouped) return;
+        if (vm is null) return;
 
         _previewWindow ??= CreatePreviewWindow();
+        var cards = BuildPreviewCards(vm);
+        if (cards.Count == 0) return;
 
         var chipOriginDevice = sourceChip.PointToScreen(new System.Windows.Point(0, 0));
         var chipOriginDip = DeviceToDipPoint(chipOriginDevice);
         var screenLeftDip = DeviceToDipX(_screen.Bounds.Left);
         var screenRightDip = DeviceToDipX(_screen.Bounds.Right);
-        double previewW = _previewWindow.Width;
+        double previewW = HoverPreviewWindow.PreviewWidthForCardCount(cards.Count);
         double left = chipOriginDip.X + sourceChip.ActualWidth / 2.0 - previewW / 2.0;
         double top  = Top + ActualHeight + 4.0;
         left = Math.Max(screenLeftDip, Math.Min(left, screenRightDip - previewW));
 
-        string title = _prevWindows.FirstOrDefault(w => w.Handle == hwnd).Title ?? vm.Title;
         double dpiScale = GetDpiScale();
         Debug.WriteLine(
-            $"[HoverPreviewDpi] hwnd=0x{hwnd:X8} screen={_screen.DeviceName} dpiScale={dpiScale:F2} " +
+            $"[HoverPreviewDpi] hwnd=0x{hwnd:X8} cards={cards.Count} screen={_screen.DeviceName} dpiScale={dpiScale:F2} " +
             $"chipDevice=({chipOriginDevice.X:F1},{chipOriginDevice.Y:F1}) " +
             $"chipDip=({chipOriginDip.X:F1},{chipOriginDip.Y:F1}) " +
             $"previewDip=({left:F1},{top:F1}) boundsDip=({screenLeftDip:F1},{screenRightDip:F1})");
-        _previewWindow.ShowForHwnd(hwnd, title, left, top, dpiScale);
+        _previewWindow.ShowForCards(cards, left, top, dpiScale);
+    }
+
+    private List<PreviewCardVm> BuildPreviewCards(WindowChipVm vm)
+    {
+        return vm.Handles
+            .Where(IsWindow)
+            .Take(MaxVisiblePreviewCards)
+            .Select(handle =>
+            {
+                var info = _prevWindows.FirstOrDefault(window => window.Handle == handle);
+                return new PreviewCardVm
+                {
+                    Hwnd = handle,
+                    Title = info.Handle == IntPtr.Zero ? vm.Title : info.Title,
+                    Activate = ActivatePreviewCard,
+                };
+            })
+            .ToList();
+    }
+
+    private void ActivatePreviewCard(IntPtr hwnd)
+    {
+        if (!IsWindow(hwnd)) return;
+        CancelHoverTimer();
+        CancelHideTimer();
+        _hoverHwnd = IntPtr.Zero;
+        _previewWindow?.HidePreview();
+        RestoreAndActivateWindow(hwnd, "[HoverPreviewActivate]");
     }
 
     private HoverPreviewWindow CreatePreviewWindow()

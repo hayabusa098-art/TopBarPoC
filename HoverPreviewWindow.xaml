@@ -9,18 +9,64 @@
         ResizeMode="NoResize"
         Width="280" Height="185"
         Background="#0E1318">
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*"/>   <!-- DWM renders thumbnail into this client-area strip -->
-            <RowDefinition Height="22"/>  <!-- title strip -->
-        </Grid.RowDefinitions>
-        <TextBlock x:Name="TitleText"
-                   Grid.Row="1"
-                   Foreground="#8CC8CDD6"
-                   FontFamily="Segoe UI"
-                   FontSize="10"
-                   VerticalAlignment="Center"
-                   Margin="8,0"
-                   TextTrimming="CharacterEllipsis"/>
-    </Grid>
+    <Border Background="#0E1318"
+            BorderBrush="#1AFFFFFF"
+            BorderThickness="1">
+        <ItemsControl x:Name="CardsHost">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button Tag="{Binding Hwnd}"
+                            Click="PreviewCard_Click"
+                            Width="280"
+                            Height="185"
+                            Margin="0,0,10,0"
+                            Background="#0E1318"
+                            BorderBrush="#1AFFFFFF"
+                            BorderThickness="0,0,1,0"
+                            Padding="0"
+                            Cursor="Hand"
+                            FocusVisualStyle="{x:Null}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}">
+                                    <ContentPresenter/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="#141B22"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="#10161C"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="22"/>
+                            </Grid.RowDefinitions>
+                            <!-- DWM renders thumbnail into the top row. -->
+                            <TextBlock Grid.Row="1"
+                                       Text="{Binding Title}"
+                                       Foreground="#8CC8CDD6"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       VerticalAlignment="Center"
+                                       Margin="8,0"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Border>
 </Window>
