@@ -15,7 +15,16 @@ public partial class HoverPreviewWindow : Window
     private readonly List<IntPtr> _thumbnailHandles = [];
     private IReadOnlyList<PreviewCardVm> _cards = [];
 
-    public HoverPreviewWindow() => InitializeComponent();
+    public HoverPreviewWindow()
+    {
+        InitializeComponent();
+        SourceInitialized += (_, _) =>
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            ApplyNoActivateStyle(hwnd);
+            HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
+        };
+    }
 
     internal void ShowForHwnd(IntPtr sourceHwnd, string title, double screenLeft, double screenTop, double dpiScale)
         => ShowForCards(
@@ -43,6 +52,7 @@ public partial class HoverPreviewWindow : Window
 
         var helper = new WindowInteropHelper(this);
         helper.EnsureHandle();
+        ApplyNoActivateStyle(helper.Handle);
 
         for (int i = 0; i < _cards.Count; i++)
         {
@@ -54,10 +64,11 @@ public partial class HoverPreviewWindow : Window
             int left = (int)Math.Round(i * (CardWidthDip + CardGapDip) * dpiScale);
             int right = (int)Math.Round((i * (CardWidthDip + CardGapDip) + CardWidthDip) * dpiScale);
             int bottom = (int)Math.Round((CardHeightDip - TitleHeightDip) * dpiScale);
+            var destination = CreateThumbnailDestination(thumbnailHandle, left, 0, right - left, bottom);
             var props = new DWM_THUMBNAIL_PROPERTIES
             {
                 dwFlags = DWM_TNP_RECTDESTINATION | DWM_TNP_OPACITY | DWM_TNP_VISIBLE | DWM_TNP_SOURCECLIENTAREAONLY,
-                rcDestination = new RECT { Left = left, Top = 0, Right = right, Bottom = bottom },
+                rcDestination = destination,
                 opacity = 255,
                 fVisible = 1,
                 fSourceClientAreaOnly = 1,
@@ -86,6 +97,68 @@ public partial class HoverPreviewWindow : Window
     {
         if (sender is not Button { DataContext: PreviewCardVm card }) return;
         card.Activate(card.Hwnd);
+    }
+
+    private static void ApplyNoActivateStyle(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero) return;
+        var exStyle = GetWindowLongPtrSafe(hwnd, GWL_EXSTYLE);
+        SetWindowLongPtrSafe(hwnd, GWL_EXSTYLE, (IntPtr)(exStyle.ToInt64() | WS_EX_NOACTIVATE));
+    }
+
+    private static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_MOUSEACTIVATE)
+        {
+            handled = true;
+            return (IntPtr)MA_NOACTIVATE;
+        }
+
+        return IntPtr.Zero;
+    }
+
+    private static RECT CreateThumbnailDestination(IntPtr thumbnailHandle, int areaLeft, int areaTop, int areaWidth, int areaHeight)
+    {
+        if (DwmQueryThumbnailSourceSize(thumbnailHandle, out var sourceSize) != 0 ||
+            sourceSize.Cx <= 0 ||
+            sourceSize.Cy <= 0 ||
+            areaWidth <= 0 ||
+            areaHeight <= 0)
+        {
+            return new RECT
+            {
+                Left = areaLeft,
+                Top = areaTop,
+                Right = areaLeft + areaWidth,
+                Bottom = areaTop + areaHeight,
+            };
+        }
+
+        double sourceAspect = (double)sourceSize.Cx / sourceSize.Cy;
+        double areaAspect = (double)areaWidth / areaHeight;
+
+        int width;
+        int height;
+        if (sourceAspect >= areaAspect)
+        {
+            width = areaWidth;
+            height = Math.Max(1, (int)Math.Round(areaWidth / sourceAspect));
+        }
+        else
+        {
+            height = areaHeight;
+            width = Math.Max(1, (int)Math.Round(areaHeight * sourceAspect));
+        }
+
+        int left = areaLeft + (areaWidth - width) / 2;
+        int top = areaTop + (areaHeight - height) / 2;
+        return new RECT
+        {
+            Left = left,
+            Top = top,
+            Right = left + width,
+            Bottom = top + height,
+        };
     }
 
     internal static double PreviewWidthForCardCount(int cardCount)

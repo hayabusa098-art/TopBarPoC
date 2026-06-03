@@ -55,6 +55,31 @@
                                 <RowDefinition Height="22"/>
                             </Grid.RowDefinitions>
                             <!-- DWM renders thumbnail into the top row. -->
+                            <Border Grid.Row="0"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Top"
+                                    Margin="0,8,8,0"
+                                    Padding="7,2"
+                                    Background="#CC10161C"
+                                    BorderBrush="#2AFFFFFF"
+                                    BorderThickness="1"
+                                    CornerRadius="8">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding OverflowCount}" Value="0">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding OverflowCount, StringFormat=+{0}}"
+                                           Foreground="#D6E8EA"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"/>
+                            </Border>
                             <TextBlock Grid.Row="1"
                                        Text="{Binding Title}"
                                        Foreground="#8CC8CDD6"

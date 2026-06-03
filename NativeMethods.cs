@@ -10,6 +10,9 @@ internal struct POINT { public int X, Y; }
 internal struct RECT  { public int Left, Top, Right, Bottom; }
 
 [StructLayout(LayoutKind.Sequential)]
+internal struct SIZE  { public int Cx, Cy; }
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct APPBARDATA
 {
     public uint   cbSize;
@@ -82,6 +85,14 @@ internal static class NativeMethods
     internal static extern IntPtr  GetShellWindow();
     [DllImport("user32.dll")]
     internal static extern int     GetWindowLong(IntPtr hWnd, int nIndex);
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr   GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)]
+    private static extern int      GetWindowLongPtr32(IntPtr hWnd, int nIndex);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr   SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
+    private static extern int      SetWindowLongPtr32(IntPtr hWnd, int nIndex, int dwNewLong);
     [DllImport("user32.dll")]
     internal static extern IntPtr  GetWindow(IntPtr hWnd, uint uCmd);
     [DllImport("user32.dll")]
@@ -104,6 +115,8 @@ internal static class NativeMethods
     internal static extern int     DwmUnregisterThumbnail(IntPtr hThumbnailId);
     [DllImport("dwmapi.dll")]
     internal static extern int     DwmUpdateThumbnailProperties(IntPtr hThumbnailId, ref DWM_THUMBNAIL_PROPERTIES ptnProperties);
+    [DllImport("dwmapi.dll")]
+    internal static extern int     DwmQueryThumbnailSourceSize(IntPtr hThumbnail, out SIZE pSize);
 
     // ── Class icon (x64 / x86 dual import; callers use GetClassLongPtrSafe) ──
     [DllImport("user32.dll", EntryPoint = "GetClassLongPtrW")]
@@ -113,6 +126,14 @@ internal static class NativeMethods
 
     internal static IntPtr GetClassLongPtrSafe(IntPtr hWnd, int nIndex)
         => IntPtr.Size == 8 ? GetClassLongPtr64(hWnd, nIndex) : (IntPtr)GetClassLong32(hWnd, nIndex);
+
+    internal static IntPtr GetWindowLongPtrSafe(IntPtr hWnd, int nIndex)
+        => IntPtr.Size == 8 ? GetWindowLongPtr64(hWnd, nIndex) : (IntPtr)GetWindowLongPtr32(hWnd, nIndex);
+
+    internal static IntPtr SetWindowLongPtrSafe(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
+        => IntPtr.Size == 8
+            ? SetWindowLongPtr64(hWnd, nIndex, dwNewLong)
+            : (IntPtr)SetWindowLongPtr32(hWnd, nIndex, dwNewLong.ToInt32());
 
     // Sends WM_GETICON with SMTO_ABORTIFHUNG; returns icon handle or zero on timeout/failure
     internal static IntPtr SendIconMsg(IntPtr hwnd, int iconType)
@@ -145,6 +166,7 @@ internal static class NativeMethods
     internal const uint DWM_TNP_OPACITY          = 0x00000004;
     internal const uint DWM_TNP_VISIBLE          = 0x00000008;
     internal const uint DWM_TNP_SOURCECLIENTAREAONLY = 0x00000010;
+    internal const int  MA_NOACTIVATE    = 3;
     internal const int  ICON_SMALL        = 0;
     internal const int  ICON_SMALL2       = 2;
     internal const int  GCLP_HICONSM     = -34;

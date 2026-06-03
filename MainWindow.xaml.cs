@@ -817,10 +817,12 @@ public partial class TopBarWindow : Window
 
     private List<PreviewCardVm> BuildPreviewCards(WindowChipVm vm)
     {
-        return vm.Handles
-            .Where(IsWindow)
-            .Take(MaxVisiblePreviewCards)
-            .Select(handle =>
+        var handles = vm.Handles.Where(IsWindow).ToList();
+        int overflowCount = Math.Max(0, handles.Count - MaxVisiblePreviewCards);
+        var visibleHandles = handles.Take(MaxVisiblePreviewCards).ToList();
+
+        return visibleHandles
+            .Select((handle, index) =>
             {
                 var info = _prevWindows.FirstOrDefault(window => window.Handle == handle);
                 return new PreviewCardVm
@@ -828,6 +830,7 @@ public partial class TopBarWindow : Window
                     Hwnd = handle,
                     Title = info.Handle == IntPtr.Zero ? vm.Title : info.Title,
                     Activate = ActivatePreviewCard,
+                    OverflowCount = index == visibleHandles.Count - 1 ? overflowCount : 0,
                 };
             })
             .ToList();
