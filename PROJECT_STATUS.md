@@ -4,12 +4,13 @@
 
 Latest commits:
 
+0b67ea3 feat: polish hover previews
 56e3325 feat: add grouped hover preview cards for grouped window chips
 f52f7b2 fix: harden hover preview DPI coordinate handling
 20f0724 fix: resolve chip drag/drop hit-test dead zone in gap column
 41578a0 feat: add DWM hover preview for single window chips
 
-Build41A grouped hover preview cards completed, validated, and pushed to origin/master.
+Build41B hover preview polish completed, validated, and pushed to origin/master.
 
 ## Build37 — Glass Minimal Refresh
 
@@ -194,11 +195,10 @@ Expanded gaps and the visual separator made it reliably reproducible.
 
 ### Deferred
 
-* Hover close button (requires WS_EX_NOACTIVATE)
-* Aspect ratio preservation (DwmQueryThumbnailSourceSize)
-* Overflow indicator for >4 preview cards
+* Hover close button
 * Animated fade in / out
 * Glass and transparency treatment (AllowsTransparency + DWM thumbnail validation)
+* Dynamic grouped preview removal after WM_CLOSE
 
 ---
 
@@ -285,6 +285,20 @@ Observed:
 - 10 DIP card spacing
 - commit: 56e3325 feat: add grouped hover preview cards for grouped window chips
 
+### Build41B
+
+- WS_EX_NOACTIVATE hover preview hardening
+- WM_MOUSEACTIVATE no-activate handling
+- aspect-ratio-preserving DWM thumbnails
+- grouped overflow +N indicator
+- singleton preview compatibility preserved
+- grouped preview compatibility preserved
+- MaxVisiblePreviewCards = 4 preserved
+- activate-on-card-click behavior preserved
+- hover grace hide behavior preserved
+- drag immediate hide behavior preserved
+- commit: 0b67ea3 feat: polish hover previews
+
 ## Key Findings
 
 - UW 100% - Large (40 DIP) feels best.
@@ -358,14 +372,14 @@ Residual visual polish only. Build37C / Build37D density behavior is already imp
 #### TB-008 Hover Preview Polish
 
 Base hover preview delivered in Build40. Grouped horizontal preview cards delivered in Build41A.
+Core hover preview polish delivered in Build41B.
 
 Remaining work:
 
-* Hover close button (requires WS_EX_NOACTIVATE on preview HWND)
-* Aspect ratio preservation (DwmQueryThumbnailSourceSize)
-* Overflow indicator for >4 preview cards
+* Hover close button
 * Animated fade in / out
 * Glass / transparency treatment (AllowsTransparency + DWM thumbnail validation)
+* Dynamic grouped preview removal after WM_CLOSE
 
 #### TB-009 Future UX — Window Chip Display Modes
 
@@ -388,7 +402,7 @@ monitor configurations.
 
 #### P3 — Hover preview polish
 
-TB-008 follow-up. Hover close button, aspect ratio, overflow indicator, fade.
+TB-008 follow-up. Hover close button, fade, glass / transparency, dynamic grouped preview removal.
 
 #### P3 — 10+ chip and reorder follow-up polish
 
@@ -402,6 +416,7 @@ Overflow, scroll, and drag/drop behavior under high chip counts and edge positio
 
 Build40 delivers single-window DWM hover preview.
 Build41A delivers grouped horizontal preview cards.
+Build41B delivers core hover preview polish.
 
 #### Planned direction
 
@@ -424,20 +439,21 @@ Each preview card:
 * Activate on click
 * Shared PreviewCardVm / ShowForCards pipeline
 * 10 DIP spacing between cards
+* WS_EX_NOACTIVATE / WM_MOUSEACTIVATE no-activate handling
+* Aspect-ratio-preserving thumbnail destination
+* +N overflow indicator when grouped windows exceed MaxVisiblePreviewCards
 
 #### Remaining polish topics
 
 * Individual × close button
-* WS_EX_NOACTIVATE hardening — required for interactive preview UI (close button, click-to-activate)
-* Aspect ratio preservation (DwmQueryThumbnailSourceSize → letterboxed rcDestination)
-* Overflow indicator for >4 preview cards
 * Optional fade animation (DoubleAnimation on Opacity)
 * Optional glass / transparency treatment (AllowsTransparency + DWM thumbnail validation)
+* Dynamic grouped preview removal after WM_CLOSE
 
 #### Priority intent
 
-Hover Preview Polish remains a follow-up after Build41A.
-Investigate before implementation.
+Hover Preview Polish core is complete as Build41B.
+Close button remains gated for follow-up investigation and explicit approval.
 
 ---
 
