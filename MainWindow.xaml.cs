@@ -186,7 +186,15 @@ public partial class TopBarWindow : Window
             if (!IsLoaded) return;
 
             var oldScreen = _screen;
-            var refreshedScreen = WinFormsScreen.AllScreens.FirstOrDefault(
+            double widthBefore = Width;
+            double leftBefore = Left;
+            double topBefore = Top;
+            double actualWidthBefore = ActualWidth;
+            double actualHeightBefore = ActualHeight;
+            var allScreens = WinFormsScreen.AllScreens;
+            string screenList = string.Join(" | ", allScreens.Select(screen =>
+                $"{screen.DeviceName}:{screen.Bounds}"));
+            var refreshedScreen = allScreens.FirstOrDefault(
                 screen => screen.DeviceName.Equals(
                     oldScreen.DeviceName, StringComparison.OrdinalIgnoreCase));
             bool usedFallback = refreshedScreen is null;
@@ -197,13 +205,15 @@ public partial class TopBarWindow : Window
             _hoverHwnd = IntPtr.Zero;
             _previewWindow?.HidePreview();
 
+            Width = _screen.Bounds.Width / dpiScale;
+            RefreshPosition();
             Debug.WriteLine(
                 $"[DisplayRefresh] old={oldScreen.DeviceName} bounds={oldScreen.Bounds} " +
                 $"refreshed={_screen.DeviceName} bounds={_screen.Bounds} fallback={usedFallback} " +
-                $"dpiScale={dpiScale:F2}");
-
-            Width = _screen.Bounds.Width / dpiScale;
-            RefreshPosition();
+                $"screenCount={allScreens.Length} screens=\"{screenList}\" " +
+                $"width={widthBefore:F1}->{Width:F1} left={leftBefore:F1}->{Left:F1} top={topBefore:F1}->{Top:F1} " +
+                $"actual=({actualWidthBefore:F1},{actualHeightBefore:F1})->({ActualWidth:F1},{ActualHeight:F1}) " +
+                $"dpiScale={dpiScale:F2} appBarRegistered={_appBarRegistered}");
             RecalcChipWidth();
             QueueWindowChipOverflowFadeRefresh();
         }));
@@ -251,7 +261,8 @@ public partial class TopBarWindow : Window
         SHAppBarMessage(ABM_SETPOS,   ref data);
         Debug.WriteLine(
             $"[AppBarDpi] screen={_screen.DeviceName} bounds={_screen.Bounds} " +
-            $"dpiScale={GetDpiScale():F2} heightDip={_barHeightDip:F1} heightPx={heightPx} " +
+            $"dpiScale={GetDpiScale():F2} hwndDpi={GetDpiForWindow(hwnd)} " +
+            $"{WpfDpiTransformSummary()} heightDip={_barHeightDip:F1} heightPx={heightPx} " +
             $"rc=({data.rc.Left},{data.rc.Top},{data.rc.Right},{data.rc.Bottom})");
         SetWindowPos(hwnd, IntPtr.Zero,
             data.rc.Left, data.rc.Top,
@@ -809,6 +820,8 @@ public partial class TopBarWindow : Window
         double dpiScale = GetDpiScale();
         Debug.WriteLine(
             $"[HoverPreviewDpi] hwnd=0x{hwnd:X8} cards={cards.Count} screen={_screen.DeviceName} dpiScale={dpiScale:F2} " +
+            $"hostDpi={GetDpiForWindow(new WindowInteropHelper(this).Handle)} targetDpi={GetDpiForWindow(hwnd)} " +
+            $"{WpfDpiTransformSummary()} " +
             $"chipDevice=({chipOriginDevice.X:F1},{chipOriginDevice.Y:F1}) " +
             $"chipDip=({chipOriginDip.X:F1},{chipOriginDip.Y:F1}) " +
             $"previewDip=({left:F1},{top:F1}) boundsDip=({screenLeftDip:F1},{screenRightDip:F1})");
@@ -1506,6 +1519,19 @@ public partial class TopBarWindow : Window
     private double DeviceToDipX(double deviceX)
         => DeviceToDipPoint(new System.Windows.Point(deviceX, 0)).X;
 
+    private string WpfDpiTransformSummary()
+    {
+        var source = PresentationSource.FromVisual(this);
+        if (source?.CompositionTarget is null)
+            return "wpfTransform=(unavailable)";
+
+        var toDevice = source.CompositionTarget.TransformToDevice;
+        var fromDevice = source.CompositionTarget.TransformFromDevice;
+        return
+            $"toDevice=({toDevice.M11:F3},{toDevice.M22:F3}) " +
+            $"fromDevice=({fromDevice.M11:F3},{fromDevice.M22:F3})";
+    }
+
     private static void LogDpiChanged(IntPtr wParam, IntPtr lParam)
     {
         uint dpiX = (uint)((long)wParam & 0xFFFF);
@@ -1527,7 +1553,10 @@ public partial class TopBarWindow : Window
         int cx  = _screen.Bounds.X + _screen.Bounds.Width  / 2;
         int cy  = _screen.Bounds.Y + _screen.Bounds.Height / 2;
         var mon = MonitorFromPoint(new POINT { X = cx, Y = cy }, 2u); // MONITOR_DEFAULTTONEAREST
-        GetDpiForMonitor(mon, 0, out uint dpiX, out _);               // MDT_EFFECTIVE_DPI
+        int hr = GetDpiForMonitor(mon, 0, out uint dpiX, out uint dpiY); // MDT_EFFECTIVE_DPI
+        Debug.WriteLine(
+            $"[DpiScale] screen={_screen.DeviceName} center=({cx},{cy}) monitor=0x{mon.ToInt64():X} " +
+            $"hr=0x{hr:X8} dpiX={dpiX} dpiY={dpiY} scale={(dpiX > 0 ? dpiX / 96.0 : 1.0):F2}");
         return dpiX > 0 ? dpiX / 96.0 : 1.0;
     }
 

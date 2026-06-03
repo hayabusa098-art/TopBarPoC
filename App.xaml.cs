@@ -7,6 +7,9 @@ public partial class App : Application
 {
     private void App_OnStartup(object sender, StartupEventArgs e)
     {
+        DiagnosticsLog.Initialize();
+        Exit += (_, _) => DiagnosticsLog.Shutdown();
+
         var settings = SettingsService.Load();
 
         WinFormsScreen[] screens = settings.MonitorMode == "primary" && WinFormsScreen.PrimaryScreen is { } ps

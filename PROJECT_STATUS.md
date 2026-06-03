@@ -12,6 +12,8 @@ f52f7b2 fix: harden hover preview DPI coordinate handling
 
 Build41B hover preview polish completed, validated, and pushed to origin/master.
 
+Build42A diagnostics enablement and TB-001 live DPI validation completed locally.
+
 ## Build37 — Glass Minimal Refresh
 
 ### Current State
@@ -299,11 +301,31 @@ Observed:
 - drag immediate hide behavior preserved
 - commit: 0b67ea3 feat: polish hover previews
 
+### Build42A
+
+- diagnostics-only file-backed Debug logging for live AppBar / DPI validation
+- process / thread DPI awareness diagnostics
+- GetDpiForMonitor HRESULT and raw DPI diagnostics
+- GetDpiForWindow and WPF transform diagnostics
+- expanded DisplayRefresh and AppBarDpi logs
+- TB-001 partially validated:
+  - multi-monitor baseline passed
+  - negative-origin baseline passed
+  - runtime scaling manual UX passed
+  - AppBar remained stable
+  - no progressive downward drift observed
+- observed system-DPI-aware mode:
+  - processAwareness=1
+  - no WM_DPICHANGED observed
+  - hwndDpi remained 96
+  - WPF transforms remained 1.0
+- no runtime visual regression reproduced
+
 ## Key Findings
 
 - UW 100% - Large (40 DIP) feels best.
 - Launch DPI behavior mostly OK.
-- Runtime DPI change while running still needs hardening.
+- Runtime DPI change manual UX passed under current system-DPI-aware mode.
 - Taskbar parity design note: Windows taskbar behavior cannot be perfectly replicated via window style inspection alone. Shell-managed taskbar state may diverge from EnumWindows eligibility.
 
 ## Active Backlog
@@ -324,8 +346,19 @@ Partial progress delivered alongside Build40 (commit f52f7b2):
 * WM_DPICHANGED decoded and logged (dpiX, dpiY, suggested RECT)
 * QueryAndApplyPosition logs DPI scale and AppBar RECT on every reposition
 
-Remaining: full runtime DPI change validation (monitor hot-plug, scaling change while running,
-multi-monitor DPI divergence). Not yet tested under live DPI change conditions.
+Build42A diagnostics and validation:
+
+* File-backed diagnostics enabled for zero-debugger AppBar / DPI validation
+* Process/thread DPI awareness logged at startup
+* GetDpiForMonitor HRESULT / raw DPI, GetDpiForWindow, and WPF transform logs added
+* Runtime scaling manual UX passed: bar position/size and hover preview showed no obvious regression
+* AppBar remained stable; no progressive downward drift observed
+* Current app mode confirmed system-DPI-aware (processAwareness=1)
+* No WM_DPICHANGED observed; hwndDpi remained 96; WPF transforms remained 1.0
+
+Remaining monitored risks: mixed DPI, monitor hot-plug, explicit per-monitor DPI behavior,
+and topology mutation edge cases. No immediate fix recommended unless a visual regression,
+mixed-DPI requirement, or runtime topology bug is reproduced.
 
 #### TB-002 Multi-monitor complete validation
 
@@ -392,8 +425,8 @@ Potential user-selectable display modes:
 
 #### P1 — TB-001 Runtime DPI hardening (partial)
 
-Hover preview DPI coordinate handling hardened (f52f7b2). Diagnostic logging added.
-Full live DPI change validation still required.
+Hover preview DPI coordinate handling hardened (f52f7b2). Build42A diagnostics added.
+TB-001 is partially validated and remains a monitored technical limitation.
 
 #### P2 — Runtime taskbar auto-hide overlap hardening
 
@@ -461,20 +494,25 @@ Close button remains gated for follow-up investigation and explicit approval.
 
 Still open — not marked complete:
 
-* Live DPI validation: scaling change while TopBar is running
-* Monitor hot-plug: disconnect / reconnect after startup
 * Mixed-DPI behavior: per-monitor DPI divergence across multiple monitors
-* Runtime AppBar position validation under live DPI change
+* Monitor hot-plug: disconnect / reconnect after startup
+* Explicit per-monitor DPI awareness behavior
+* Topology mutation edge cases
 * Non-primary monitor DPI edge cases
 
 Partial hardening delivered in f52f7b2 (hover preview coordinate fix, display-refresh teardown,
-WM_DPICHANGED diagnostic logging). Full live-condition testing not yet performed.
+WM_DPICHANGED diagnostic logging). Build42A partially validated runtime scaling UX and confirmed
+current system-DPI-aware behavior. Per-monitor DPI hardening should be investigated only if a
+visual regression appears, mixed-DPI requirements increase, or topology bugs are reproduced.
 
 ---
 
 ## Known Problems
 
 ### KP-001 Runtime DPI runtime instability
+
+Partially validated in Build42A. No immediate visual regression reproduced under current
+system-DPI-aware mode; mixed-DPI, hot-plug, and per-monitor DPI behavior remain monitored risks.
 
 ### KP-002 Grouped multi-window close edge cases
 

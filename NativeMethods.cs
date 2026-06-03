@@ -52,6 +52,14 @@ internal static class NativeMethods
     internal static extern IntPtr  MonitorFromPoint(POINT pt, uint dwFlags);
     [DllImport("shcore.dll")]
     internal static extern int     GetDpiForMonitor(IntPtr hMon, int dpiType, out uint dpiX, out uint dpiY);
+    [DllImport("user32.dll")]
+    internal static extern uint    GetDpiForWindow(IntPtr hWnd);
+    [DllImport("shcore.dll")]
+    internal static extern int     GetProcessDpiAwareness(IntPtr hprocess, out int value);
+    [DllImport("user32.dll")]
+    internal static extern IntPtr  GetThreadDpiAwarenessContext();
+    [DllImport("user32.dll")]
+    internal static extern int     GetAwarenessFromDpiAwarenessContext(IntPtr value);
 
     // ── Window positioning ────────────────────────────────────────────────────
     [DllImport("user32.dll")]
