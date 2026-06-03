@@ -4,11 +4,12 @@
 
 Latest commits:
 
+56e3325 feat: add grouped hover preview cards for grouped window chips
 f52f7b2 fix: harden hover preview DPI coordinate handling
 20f0724 fix: resolve chip drag/drop hit-test dead zone in gap column
 41578a0 feat: add DWM hover preview for single window chips
 
-Build40 + DPI hardening completed, validated, and pushed to origin/master.
+Build41A grouped hover preview cards completed, validated, and pushed to origin/master.
 
 ## Build37 — Glass Minimal Refresh
 
@@ -171,7 +172,7 @@ Commits:
 - No focus stealing (ShowActivated=False)
 - Drag-start hides preview immediately (no delay)
 - Elevated and cloaked target safe handling (HRESULT check, title-only dark fallback)
-- Grouped chip preview: deferred (IsGrouped guard in place as hookup point)
+- Grouped chip preview: delivered in Build41A
 
 ### Additional Fix — Drag/Drop Gap Hit-Test Dead Zone
 
@@ -193,9 +194,9 @@ Expanded gaps and the visual separator made it reliably reproducible.
 
 ### Deferred
 
-* Grouped chip preview (multiple HWNDs per chip)
 * Hover close button (requires WS_EX_NOACTIVATE)
 * Aspect ratio preservation (DwmQueryThumbnailSourceSize)
+* Overflow indicator for >4 preview cards
 * Animated fade in / out
 * Glass and transparency treatment (AllowsTransparency + DWM thumbnail validation)
 
@@ -273,6 +274,17 @@ Observed:
 - Drag/drop gap hit-test dead zone fix (Build39-exposed latent issue)
 - commits: 41578a0, 20f0724
 
+### Build41A
+
+- grouped horizontal hover previews
+- reusable PreviewCardVm
+- shared ShowForCards pipeline
+- singleton compatibility preserved
+- MaxVisiblePreviewCards = 4
+- activate-on-card-click
+- 10 DIP card spacing
+- commit: 56e3325 feat: add grouped hover preview cards for grouped window chips
+
 ## Key Findings
 
 - UW 100% - Large (40 DIP) feels best.
@@ -345,11 +357,13 @@ Residual visual polish only. Build37C / Build37D density behavior is already imp
 
 #### TB-008 Hover Preview Polish
 
-Base hover preview delivered in Build40. Remaining work:
+Base hover preview delivered in Build40. Grouped horizontal preview cards delivered in Build41A.
 
-* Grouped chip preview (multiple HWNDs — show last-active or stacked mini-previews)
+Remaining work:
+
 * Hover close button (requires WS_EX_NOACTIVATE on preview HWND)
 * Aspect ratio preservation (DwmQueryThumbnailSourceSize)
+* Overflow indicator for >4 preview cards
 * Animated fade in / out
 * Glass / transparency treatment (AllowsTransparency + DWM thumbnail validation)
 
@@ -372,9 +386,9 @@ Full live DPI change validation still required.
 Verify TopBar coexistence with Windows taskbar auto-hide across edge cases and
 monitor configurations.
 
-#### P3 — Hover preview polish / grouped chip previews
+#### P3 — Hover preview polish
 
-TB-008 follow-up. Grouped chip preview, hover close button, aspect ratio, fade.
+TB-008 follow-up. Hover close button, aspect ratio, overflow indicator, fade.
 
 #### P3 — 10+ chip and reorder follow-up polish
 
@@ -387,17 +401,17 @@ Overflow, scroll, and drag/drop behavior under high chip counts and edge positio
 #### Current state
 
 Build40 delivers single-window DWM hover preview.
-Grouped chips are intentionally deferred via the `IsGrouped` guard — the hookup point is in place.
+Build41A delivers grouped horizontal preview cards.
 
 #### Planned direction
 
 Follow Windows taskbar hover preview UX closely.
 
-#### Grouped preview concept
+#### Grouped preview delivered
 
 Grouped chip hover shows multiple live previews horizontally — one preview card per grouped window.
 
-Candidate layout:
+Delivered layout:
 
 ```
 [ preview A ][ preview B ][ preview C ]
@@ -408,20 +422,21 @@ Each preview card:
 * DWM live thumbnail (client area)
 * Title strip at bottom
 * Activate on click
+* Shared PreviewCardVm / ShowForCards pipeline
+* 10 DIP spacing between cards
+
+#### Remaining polish topics
+
 * Individual × close button
-
-#### Architecture and polish topics
-
-* Grouped preview container layout (horizontal stack of reusable preview-card controls)
-* Reusable preview-card model (single-window and grouped both use the same card component)
 * WS_EX_NOACTIVATE hardening — required for interactive preview UI (close button, click-to-activate)
 * Aspect ratio preservation (DwmQueryThumbnailSourceSize → letterboxed rcDestination)
+* Overflow indicator for >4 preview cards
 * Optional fade animation (DoubleAnimation on Opacity)
 * Optional glass / transparency treatment (AllowsTransparency + DWM thumbnail validation)
 
 #### Priority intent
 
-Build41 / Hover Preview Polish candidate.
+Hover Preview Polish remains a follow-up after Build41A.
 Investigate before implementation.
 
 ---
