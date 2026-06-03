@@ -62,6 +62,8 @@ internal static class NativeMethods
     internal static extern uint    GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     internal static extern int     GetWindowText(IntPtr hWnd, StringBuilder buf, int len);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    internal static extern int     GetClassName(IntPtr hWnd, StringBuilder buf, int nMaxCount);
     [DllImport("user32.dll")]
     internal static extern int     GetWindowTextLength(IntPtr hWnd);
     [DllImport("user32.dll")]

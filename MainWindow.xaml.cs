@@ -481,6 +481,11 @@ public partial class TopBarWindow : Window
             bool hasOwner     = NativeMethods.GetWindow(hWnd, GW_OWNER) != IntPtr.Zero;
             if (!isAppWindow && (hasOwner || isToolWindow || isNoActivate)) return true;
 
+            var classBuf = new StringBuilder(64);
+            GetClassName(hWnd, classBuf, classBuf.Capacity);
+            if (classBuf.ToString() is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd"
+                                    or "DV2ControlHost" or "WorkerW") return true;
+
             GetWindowThreadProcessId(hWnd, out uint pid);
             if (pid == selfPid) return true;
             if (IsCloaked(hWnd)) return true;
