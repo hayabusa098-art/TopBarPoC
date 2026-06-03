@@ -2,11 +2,12 @@
 
 ## Latest
 
-Latest commit:
+Latest commits:
 
-9ef3386 fix: harden close diagnostics and window enumeration
+20f0724 fix: resolve chip drag/drop hit-test dead zone in gap column
+41578a0 feat: add DWM hover preview for single window chips
 
-Build38A completed, validated, and pushed to origin/master.
+Build40 completed, validated, and pushed to origin/master.
 
 ## Build37 — Glass Minimal Refresh
 
@@ -149,6 +150,56 @@ Still behind the Glass Minimal target:
 
 * blur/radius/shadow scaling future work
 
+## Build40 — DWM Hover Preview
+
+### Status
+
+COMPLETE
+
+Commits:
+
+41578a0 feat: add DWM hover preview for single window chips
+20f0724 fix: resolve chip drag/drop hit-test dead zone in gap column
+
+### Delivered
+
+- DWM live thumbnail hover preview for single-window chips
+- 450ms hover delay reused from Build39 groundwork
+- 200ms chip→preview grace timer (prevents flicker on chip→preview mouse transition)
+- Title strip at bottom of preview window
+- No focus stealing (ShowActivated=False)
+- Drag-start hides preview immediately (no delay)
+- Elevated and cloaked target safe handling (HRESULT check, title-only dark fallback)
+- Grouped chip preview: deferred (IsGrouped guard in place as hookup point)
+
+### Additional Fix — Drag/Drop Gap Hit-Test Dead Zone
+
+Discovered during Build40 manual testing.
+
+Root cause: Build39's DataTemplate Grid wrapper (chip + gap columns) had no Background,
+making the gap column a WPF hit-test vacuum. DragOver stopped firing when the cursor
+was in the gap, causing the drop cue to flicker and drops to land at the wrong position
+(appended to end instead of inserted at the indicated gap).
+
+Fix:
+
+* Background="Transparent" on DataTemplate Grid — gap column becomes hit-testable
+* FindChipButton / FindDescendantButton fallback — resolves chip button via descendant
+  search when the gap Grid is the hit target, restoring correct drop position
+
+Attribution: Build39-exposed latent issue. Pre-existing with margin-based gaps; wider
+Expanded gaps and the visual separator made it reliably reproducible.
+
+### Deferred
+
+* Grouped chip preview (multiple HWNDs per chip)
+* Hover close button (requires WS_EX_NOACTIVATE)
+* Aspect ratio preservation (DwmQueryThumbnailSourceSize)
+* Animated fade in / out
+* Glass and transparency treatment (AllowsTransparency + DWM thumbnail validation)
+
+---
+
 ## Completed
 
 ### Build20
@@ -212,6 +263,15 @@ Observed:
 - Some helper / transient windows, such as Steam and Discord helper surfaces, may appear in TopBar while not appearing in the Windows taskbar.
 - This motivated the Build38B investigation.
 
+### Build40
+
+- DWM live thumbnail hover preview for single-window chips
+- 450ms hover delay / 200ms chip→preview grace timer
+- Title strip / no focus steal / drag immediate hide
+- Elevated and cloaked target safe handling
+- Drag/drop gap hit-test dead zone fix (Build39-exposed latent issue)
+- commits: 41578a0, 20f0724
+
 ## Key Findings
 
 - UW 100% - Large (40 DIP) feels best.
@@ -271,11 +331,15 @@ Notes:
 
 Residual visual polish only. Build37C / Build37D density behavior is already implemented.
 
-#### TB-008 Future UX — Hover Preview / Taskbar-style Preview
+#### TB-008 Hover Preview Polish
 
-Investigate taskbar-style hover preview UX and a possible preview close button.
+Base hover preview delivered in Build40. Remaining work:
 
-Not part of Build38A.
+* Grouped chip preview (multiple HWNDs — show last-active or stacked mini-previews)
+* Hover close button (requires WS_EX_NOACTIVATE on preview HWND)
+* Aspect ratio preservation (DwmQueryThumbnailSourceSize)
+* Animated fade in / out
+* Glass / transparency treatment (AllowsTransparency + DWM thumbnail validation)
 
 #### TB-009 Future UX — Window Chip Display Modes
 
@@ -283,6 +347,25 @@ Potential user-selectable display modes:
 
 * icon only
 * icon + title
+
+### Next Build Candidates
+
+#### P1 — TB-001 Runtime DPI hardening
+
+Highest open priority. Runtime DPI change while running needs validation and hardening.
+
+#### P2 — Runtime taskbar auto-hide overlap hardening
+
+Verify TopBar coexistence with Windows taskbar auto-hide across edge cases and
+monitor configurations.
+
+#### P3 — Hover preview polish / grouped chip previews
+
+TB-008 follow-up. Grouped chip preview, hover close button, aspect ratio, fade.
+
+#### P3 — 10+ chip and reorder follow-up polish
+
+Overflow, scroll, and drag/drop behavior under high chip counts and edge positions.
 
 ## Known Problems
 
