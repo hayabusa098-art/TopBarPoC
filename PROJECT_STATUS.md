@@ -4,10 +4,11 @@
 
 Latest commits:
 
+f52f7b2 fix: harden hover preview DPI coordinate handling
 20f0724 fix: resolve chip drag/drop hit-test dead zone in gap column
 41578a0 feat: add DWM hover preview for single window chips
 
-Build40 completed, validated, and pushed to origin/master.
+Build40 + DPI hardening completed, validated, and pushed to origin/master.
 
 ## Build37 — Glass Minimal Refresh
 
@@ -287,7 +288,18 @@ TB-005 is retained as the historical ID for completed Build37D Auto Density and 
 
 #### TB-001 Runtime DPI hardening
 
-Runtime DPI changes while running still need validation / hardening.
+Partial progress delivered alongside Build40 (commit f52f7b2):
+
+* Hover preview position now computed entirely in WPF DIP space
+  (DeviceToDipPoint via PresentationSource.TransformFromDevice)
+* Preview top uses Top + ActualHeight instead of physical-pixel conversion
+* Screen-edge clamping now uses DIP screen bounds (was physical pixels — mismatch at non-100% DPI)
+* QueueDisplayRefresh now tears down hover preview and clears hover state on display change
+* WM_DPICHANGED decoded and logged (dpiX, dpiY, suggested RECT)
+* QueryAndApplyPosition logs DPI scale and AppBar RECT on every reposition
+
+Remaining: full runtime DPI change validation (monitor hot-plug, scaling change while running,
+multi-monitor DPI divergence). Not yet tested under live DPI change conditions.
 
 #### TB-002 Multi-monitor complete validation
 
@@ -350,9 +362,10 @@ Potential user-selectable display modes:
 
 ### Next Build Candidates
 
-#### P1 — TB-001 Runtime DPI hardening
+#### P1 — TB-001 Runtime DPI hardening (partial)
 
-Highest open priority. Runtime DPI change while running needs validation and hardening.
+Hover preview DPI coordinate handling hardened (f52f7b2). Diagnostic logging added.
+Full live DPI change validation still required.
 
 #### P2 — Runtime taskbar auto-hide overlap hardening
 
