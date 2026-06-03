@@ -50,6 +50,8 @@ public partial class TopBarWindow : Window
     private IntPtr _suppressClickHwnd;
     private System.Windows.Point _dragStartPoint;
     private IntPtr _clickSnapshot = IntPtr.Zero;
+    private IntPtr           _hoverHwnd;
+    private DispatcherTimer? _hoverTimer;
     private ChipDensityMode _chipDensityMode = ChipDensityMode.Balanced;
 
     private enum ChipDensityMode
@@ -720,12 +722,58 @@ public partial class TopBarWindow : Window
             return;
 
         _dragCandidateHwnd = IntPtr.Zero;
+        _hoverTimer?.Stop();
+        _hoverTimer = null;
         var data = new DataObject("TopBarPoC.WindowChipHwnd", hwnd.ToInt64());
         var effect = DragDrop.DoDragDrop(btn, data, DragDropEffects.Move);
         ClearWindowChipDropCue();
         if (effect == DragDropEffects.Move)
             _suppressClickHwnd = hwnd;
     }
+
+    private void ChipButton_MouseEnter(object sender, MouseEventArgs e)
+    {
+        if (sender is not Button { Tag: IntPtr hwnd }) return;
+        _hoverHwnd = hwnd;
+        _hoverTimer?.Stop();
+        _hoverTimer = new DispatcherTimer(DispatcherPriority.Normal)
+            { Interval = TimeSpan.FromMilliseconds(450) };
+        _hoverTimer.Tick += (_, _) =>
+        {
+            _hoverTimer?.Stop();
+            _hoverTimer = null;
+            ShowHoverPreview(_hoverHwnd);
+        };
+        _hoverTimer.Start();
+    }
+
+    private void ChipButton_MouseLeave(object sender, MouseEventArgs e)
+    {
+        _hoverTimer?.Stop();
+        _hoverTimer = null;
+        _hoverHwnd = IntPtr.Zero;
+        HideHoverPreview();
+    }
+
+    private void ChipButton_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Middle) return;
+        e.Handled = true;
+        if (sender is not Button { Tag: IntPtr hwnd } btn) return;
+        if (btn.DataContext is WindowChipVm { IsGrouped: true }) return;
+        if (!IsWindow(hwnd)) return;
+        TryCloseWindow(hwnd, "[MiddleClose]");
+    }
+
+    // ── Hover preview stubs (Build39 groundwork — DWM thumbnail wired in Build40) ──
+    private static void ShowHoverPreview(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero) return;
+        Debug.WriteLine($"[HoverPreview] show hwnd=0x{hwnd:X8}");
+    }
+
+    private static void HideHoverPreview()
+        => Debug.WriteLine("[HoverPreview] hide");
 
     private void WindowChipsScrollViewer_Drop(object sender, DragEventArgs e)
     {

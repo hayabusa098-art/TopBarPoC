@@ -486,6 +486,9 @@
                                     PreviewMouseLeftButtonDown="ChipButton_PreviewMouseLeftButtonDown"
                                     PreviewMouseLeftButtonUp="ChipButton_PreviewMouseLeftButtonUp"
                                     PreviewMouseMove="ChipButton_PreviewMouseMove"
+                                    PreviewMouseDown="ChipButton_PreviewMouseDown"
+                                    MouseEnter="ChipButton_MouseEnter"
+                                    MouseLeave="ChipButton_MouseLeave"
                                     Click="ChipButton_Click">
                                 <Button.ContextMenu>
                                     <ContextMenu Style="{StaticResource ChipContextMenuStyle}"
