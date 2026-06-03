@@ -190,12 +190,18 @@ public partial class TopBarWindow : Window
                     oldScreen.DeviceName, StringComparison.OrdinalIgnoreCase));
             bool usedFallback = refreshedScreen is null;
             _screen = refreshedScreen ?? oldScreen;
+            double dpiScale = GetDpiScale();
+            CancelHoverTimer();
+            CancelHideTimer();
+            _hoverHwnd = IntPtr.Zero;
+            _previewWindow?.HidePreview();
 
             Debug.WriteLine(
                 $"[DisplayRefresh] old={oldScreen.DeviceName} bounds={oldScreen.Bounds} " +
-                $"refreshed={_screen.DeviceName} bounds={_screen.Bounds} fallback={usedFallback}");
+                $"refreshed={_screen.DeviceName} bounds={_screen.Bounds} fallback={usedFallback} " +
+                $"dpiScale={dpiScale:F2}");
 
-            Width = _screen.Bounds.Width / GetDpiScale();
+            Width = _screen.Bounds.Width / dpiScale;
             RefreshPosition();
             RecalcChipWidth();
             QueueWindowChipOverflowFadeRefresh();
@@ -242,6 +248,10 @@ public partial class TopBarWindow : Window
         SHAppBarMessage(ABM_QUERYPOS, ref data);
         data.rc.Bottom = data.rc.Top + heightPx; // maintain configured DIP height regardless of shell adjustment
         SHAppBarMessage(ABM_SETPOS,   ref data);
+        Debug.WriteLine(
+            $"[AppBarDpi] screen={_screen.DeviceName} bounds={_screen.Bounds} " +
+            $"dpiScale={GetDpiScale():F2} heightDip={_barHeightDip:F1} heightPx={heightPx} " +
+            $"rc=({data.rc.Left},{data.rc.Top},{data.rc.Right},{data.rc.Bottom})");
         SetWindowPos(hwnd, IntPtr.Zero,
             data.rc.Left, data.rc.Top,
             data.rc.Right - data.rc.Left,
@@ -304,6 +314,8 @@ public partial class TopBarWindow : Window
         }
         else if (msg == WM_DISPLAYCHANGE || msg == WM_DPICHANGED)
         {
+            if (msg == WM_DPICHANGED)
+                LogDpiChanged(wParam, lParam);
             QueueDisplayRefresh();
         }
         else if (msg == WM_SETTINGCHANGE)
@@ -782,14 +794,23 @@ public partial class TopBarWindow : Window
 
         _previewWindow ??= CreatePreviewWindow();
 
-        var chipOrigin = sourceChip.PointToScreen(new System.Windows.Point(0, 0));
+        var chipOriginDevice = sourceChip.PointToScreen(new System.Windows.Point(0, 0));
+        var chipOriginDip = DeviceToDipPoint(chipOriginDevice);
+        var screenLeftDip = DeviceToDipX(_screen.Bounds.Left);
+        var screenRightDip = DeviceToDipX(_screen.Bounds.Right);
         double previewW = _previewWindow.Width;
-        double left = chipOrigin.X + sourceChip.ActualWidth / 2.0 - previewW / 2.0;
-        double top  = _screen.Bounds.Top + PhysicalBarHeight() / GetDpiScale() + 4.0;
-        left = Math.Max(_screen.Bounds.Left, Math.Min(left, _screen.Bounds.Right - previewW));
+        double left = chipOriginDip.X + sourceChip.ActualWidth / 2.0 - previewW / 2.0;
+        double top  = Top + ActualHeight + 4.0;
+        left = Math.Max(screenLeftDip, Math.Min(left, screenRightDip - previewW));
 
         string title = _prevWindows.FirstOrDefault(w => w.Handle == hwnd).Title ?? vm.Title;
-        _previewWindow.ShowForHwnd(hwnd, title, left, top, GetDpiScale());
+        double dpiScale = GetDpiScale();
+        Debug.WriteLine(
+            $"[HoverPreviewDpi] hwnd=0x{hwnd:X8} screen={_screen.DeviceName} dpiScale={dpiScale:F2} " +
+            $"chipDevice=({chipOriginDevice.X:F1},{chipOriginDevice.Y:F1}) " +
+            $"chipDip=({chipOriginDip.X:F1},{chipOriginDip.Y:F1}) " +
+            $"previewDip=({left:F1},{top:F1}) boundsDip=({screenLeftDip:F1},{screenRightDip:F1})");
+        _previewWindow.ShowForHwnd(hwnd, title, left, top, dpiScale);
     }
 
     private HoverPreviewWindow CreatePreviewWindow()
@@ -1442,6 +1463,31 @@ public partial class TopBarWindow : Window
     };
 
     private int PhysicalBarHeight() => (int)Math.Round(_barHeightDip * GetDpiScale());
+
+    private System.Windows.Point DeviceToDipPoint(System.Windows.Point devicePoint)
+    {
+        var source = PresentationSource.FromVisual(this);
+        return source?.CompositionTarget?.TransformFromDevice.Transform(devicePoint) ?? devicePoint;
+    }
+
+    private double DeviceToDipX(double deviceX)
+        => DeviceToDipPoint(new System.Windows.Point(deviceX, 0)).X;
+
+    private static void LogDpiChanged(IntPtr wParam, IntPtr lParam)
+    {
+        uint dpiX = (uint)((long)wParam & 0xFFFF);
+        uint dpiY = (uint)(((long)wParam >> 16) & 0xFFFF);
+        if (lParam == IntPtr.Zero)
+        {
+            Debug.WriteLine($"[DpiChanged] dpiX={dpiX} dpiY={dpiY} suggested=(null)");
+            return;
+        }
+
+        var suggested = Marshal.PtrToStructure<RECT>(lParam);
+        Debug.WriteLine(
+            $"[DpiChanged] dpiX={dpiX} dpiY={dpiY} " +
+            $"suggested=({suggested.Left},{suggested.Top},{suggested.Right},{suggested.Bottom})");
+    }
 
     private double GetDpiScale()
     {
