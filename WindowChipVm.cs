@@ -66,6 +66,18 @@ internal sealed class WindowChipVm : INotifyPropertyChanged
         }
     }
 
+    private GridLength _chipGapWidth = new(3);
+    public GridLength ChipGapWidth
+    {
+        get => _chipGapWidth;
+        set
+        {
+            if (_chipGapWidth == value) return;
+            _chipGapWidth = value;
+            PropertyChanged?.Invoke(this, _chipGapWidthPcea);
+        }
+    }
+
     private Thickness _chipMargin = new(0, 0, 3, 0);
     public Thickness ChipMargin
     {
@@ -96,6 +108,7 @@ internal sealed class WindowChipVm : INotifyPropertyChanged
     private static readonly PropertyChangedEventArgs _isMinimizedPcea  = new(nameof(IsMinimized));
     private static readonly PropertyChangedEventArgs _isActivePcea     = new(nameof(IsActive));
     private static readonly PropertyChangedEventArgs _widthPcea        = new(nameof(Width));
-    private static readonly PropertyChangedEventArgs _chipMarginPcea   = new(nameof(ChipMargin));
-    private static readonly PropertyChangedEventArgs _chipPaddingPcea  = new(nameof(ChipPadding));
+    private static readonly PropertyChangedEventArgs _chipGapWidthPcea  = new(nameof(ChipGapWidth));
+    private static readonly PropertyChangedEventArgs _chipMarginPcea    = new(nameof(ChipMargin));
+    private static readonly PropertyChangedEventArgs _chipPaddingPcea   = new(nameof(ChipPadding));
 }

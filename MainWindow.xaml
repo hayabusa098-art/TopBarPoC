@@ -163,18 +163,18 @@
                             </Trigger>
                             <DataTrigger Binding="{Binding IsActive}" Value="True">
                                 <Setter TargetName="activeDot" Property="Visibility" Value="Visible"/>
-                                <Setter TargetName="border" Property="Background" Value="#293DDC97"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#593DDC97"/>
-                                <Setter TargetName="border" Property="BorderThickness" Value="1"/>
+                                <Setter TargetName="border" Property="Background"       Value="#293DDC97"/>
+                                <Setter TargetName="border" Property="BorderBrush"      Value="#593DDC97"/>
+                                <Setter TargetName="border" Property="BorderThickness"  Value="1"/>
                             </DataTrigger>
                             <MultiDataTrigger>
                                 <MultiDataTrigger.Conditions>
                                     <Condition Binding="{Binding IsActive}" Value="True"/>
                                     <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True"/>
                                 </MultiDataTrigger.Conditions>
-                                <Setter TargetName="border" Property="Background" Value="#333DDC97"/>
+                                <Setter TargetName="border" Property="Background"  Value="#333DDC97"/>
                                 <Setter TargetName="border" Property="BorderBrush" Value="#6B3DDC97"/>
-                                <Setter TargetName="label" Property="Foreground" Value="#EEF1F5"/>
+                                <Setter TargetName="label"  Property="Foreground"  Value="#EEF1F5"/>
                             </MultiDataTrigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="#1FFFFFFF"/>
@@ -476,11 +476,23 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Button Content="{Binding Title}"
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="{Binding ChipGapWidth}"/>
+                                </Grid.ColumnDefinitions>
+                                <Rectangle Grid.Column="1"
+                                           Width="1" Height="10"
+                                           Fill="#1AFFFFFF"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           IsHitTestVisible="False"/>
+                            <Button Grid.Column="0"
+                                    Content="{Binding Title}"
                                     Tag="{Binding Handle}"
                                     ToolTip="{Binding ToolTipText}"
                                     Width="{Binding Width}"
-                                    Margin="{Binding ChipMargin}"
+                                    Margin="0"
                                     Padding="{Binding ChipPadding}"
                                     ContextMenuService.Placement="Bottom"
                                     ContextMenuOpening="ChipButton_ContextMenuOpening"
@@ -528,6 +540,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
+                            </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                     </ItemsControl>

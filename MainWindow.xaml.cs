@@ -52,6 +52,7 @@ public partial class TopBarWindow : Window
     private IntPtr _clickSnapshot = IntPtr.Zero;
     private IntPtr           _hoverHwnd;
     private DispatcherTimer? _hoverTimer;
+    private double           _currentChipGap = 3.0;
     private ChipDensityMode _chipDensityMode = ChipDensityMode.Balanced;
 
     private enum ChipDensityMode
@@ -409,6 +410,7 @@ public partial class TopBarWindow : Window
                 break;
         }
 
+        _currentChipGap = chipGap;
         double chipWidth = available / n - chipGap;
 
         switch (_chipDensityMode)
@@ -430,9 +432,10 @@ public partial class TopBarWindow : Window
 
         foreach (var vm in _chipVms)
         {
-            vm.Width      = vm.IsActive ? activeWidth : inactiveWidth;
-            vm.ChipMargin  = chipMargin;
-            vm.ChipPadding = chipPadding;
+            vm.Width         = vm.IsActive ? activeWidth : inactiveWidth;
+            vm.ChipGapWidth  = new GridLength(chipGap);
+            vm.ChipMargin    = chipMargin;
+            vm.ChipPadding   = chipPadding;
         }
     }
 
@@ -875,7 +878,10 @@ public partial class TopBarWindow : Window
     private void SetWindowChipDropCue(Button target, bool after)
     {
         var chipPosition = target.TranslatePoint(new System.Windows.Point(), WindowChipsOverlayGrid);
-        double cueX = after ? chipPosition.X + target.ActualWidth : chipPosition.X - 3.0;
+        double half = _currentChipGap / 2.0 - 1.5;   // center 3px cue in gap
+        double cueX = after
+            ? chipPosition.X + target.ActualWidth + half
+            : chipPosition.X - half - 3.0;
         WindowChipDropCue.Margin = new Thickness(cueX, 0, 0, 0);
         WindowChipDropCue.Visibility = Visibility.Visible;
     }
