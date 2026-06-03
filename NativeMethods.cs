@@ -30,6 +30,18 @@ internal struct WINDOWPOS
     public uint   flags;
 }
 
+// Win32 BOOL is a 4-byte int; byte opacity is followed by 3 bytes of natural padding before fVisible.
+[StructLayout(LayoutKind.Sequential)]
+internal struct DWM_THUMBNAIL_PROPERTIES
+{
+    public uint dwFlags;
+    public RECT rcDestination;
+    public RECT rcSource;
+    public byte opacity;
+    public int  fVisible;
+    public int  fSourceClientAreaOnly;
+}
+
 internal static class NativeMethods
 {
     // ── Display / DPI ─────────────────────────────────────────────────────────
@@ -86,6 +98,12 @@ internal static class NativeMethods
     internal static extern IntPtr  GetForegroundWindow();
     [DllImport("dwmapi.dll")]
     internal static extern int     DwmGetWindowAttribute(IntPtr hWnd, uint dwAttribute, out uint pvAttribute, uint cbAttribute);
+    [DllImport("dwmapi.dll")]
+    internal static extern int     DwmRegisterThumbnail(IntPtr hwndDestination, IntPtr hwndSource, out IntPtr phThumbnailId);
+    [DllImport("dwmapi.dll")]
+    internal static extern int     DwmUnregisterThumbnail(IntPtr hThumbnailId);
+    [DllImport("dwmapi.dll")]
+    internal static extern int     DwmUpdateThumbnailProperties(IntPtr hThumbnailId, ref DWM_THUMBNAIL_PROPERTIES ptnProperties);
 
     // ── Class icon (x64 / x86 dual import; callers use GetClassLongPtrSafe) ──
     [DllImport("user32.dll", EntryPoint = "GetClassLongPtrW")]
@@ -122,7 +140,11 @@ internal static class NativeMethods
     internal const uint WM_CLOSE          = 0x0010;
     internal const uint WM_GETICON        = 0x007F;
     internal const uint SMTO_ABORTIFHUNG  = 0x0002;
-    internal const uint DWMWA_CLOAKED     = 14;
+    internal const uint DWMWA_CLOAKED            = 14;
+    internal const uint DWM_TNP_RECTDESTINATION  = 0x00000001;
+    internal const uint DWM_TNP_OPACITY          = 0x00000004;
+    internal const uint DWM_TNP_VISIBLE          = 0x00000008;
+    internal const uint DWM_TNP_SOURCECLIENTAREAONLY = 0x00000010;
     internal const int  ICON_SMALL        = 0;
     internal const int  ICON_SMALL2       = 2;
     internal const int  GCLP_HICONSM     = -34;

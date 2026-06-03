@@ -50,9 +50,11 @@ public partial class TopBarWindow : Window
     private IntPtr _suppressClickHwnd;
     private System.Windows.Point _dragStartPoint;
     private IntPtr _clickSnapshot = IntPtr.Zero;
-    private IntPtr           _hoverHwnd;
-    private DispatcherTimer? _hoverTimer;
-    private double           _currentChipGap = 3.0;
+    private IntPtr               _hoverHwnd;
+    private DispatcherTimer?     _hoverTimer;
+    private HoverPreviewWindow?  _previewWindow;
+    private DispatcherTimer?     _hideTimer;
+    private double               _currentChipGap = 3.0;
     private ChipDensityMode _chipDensityMode = ChipDensityMode.Balanced;
 
     private enum ChipDensityMode
@@ -89,6 +91,9 @@ public partial class TopBarWindow : Window
             _clock?.Stop();
             _windowPollTimer?.Stop();
             _shellSettleTimer?.Stop();
+            CancelHoverTimer();
+            CancelHideTimer();
+            _previewWindow?.Close();
             if (_displaySettingsSubscribed)
             {
                 SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
@@ -725,8 +730,9 @@ public partial class TopBarWindow : Window
             return;
 
         _dragCandidateHwnd = IntPtr.Zero;
-        _hoverTimer?.Stop();
-        _hoverTimer = null;
+        CancelHoverTimer();
+        CancelHideTimer();
+        _previewWindow?.HidePreview();
         var data = new DataObject("TopBarPoC.WindowChipHwnd", hwnd.ToInt64());
         var effect = DragDrop.DoDragDrop(btn, data, DragDropEffects.Move);
         ClearWindowChipDropCue();
@@ -736,24 +742,23 @@ public partial class TopBarWindow : Window
 
     private void ChipButton_MouseEnter(object sender, MouseEventArgs e)
     {
-        if (sender is not Button { Tag: IntPtr hwnd }) return;
+        if (sender is not Button { Tag: IntPtr hwnd } btn) return;
         _hoverHwnd = hwnd;
-        _hoverTimer?.Stop();
+        CancelHideTimer();
+        CancelHoverTimer();
         _hoverTimer = new DispatcherTimer(DispatcherPriority.Normal)
             { Interval = TimeSpan.FromMilliseconds(450) };
         _hoverTimer.Tick += (_, _) =>
         {
-            _hoverTimer?.Stop();
-            _hoverTimer = null;
-            ShowHoverPreview(_hoverHwnd);
+            CancelHoverTimer();
+            ShowHoverPreview(_hoverHwnd, btn);
         };
         _hoverTimer.Start();
     }
 
     private void ChipButton_MouseLeave(object sender, MouseEventArgs e)
     {
-        _hoverTimer?.Stop();
-        _hoverTimer = null;
+        CancelHoverTimer();
         _hoverHwnd = IntPtr.Zero;
         HideHoverPreview();
     }
@@ -768,15 +773,59 @@ public partial class TopBarWindow : Window
         TryCloseWindow(hwnd, "[MiddleClose]");
     }
 
-    // ── Hover preview stubs (Build39 groundwork — DWM thumbnail wired in Build40) ──
-    private static void ShowHoverPreview(IntPtr hwnd)
+    // ── Hover preview (Build40 — DWM thumbnail) ──────────────────────────────────
+    private void ShowHoverPreview(IntPtr hwnd, Button sourceChip)
     {
         if (hwnd == IntPtr.Zero) return;
-        Debug.WriteLine($"[HoverPreview] show hwnd=0x{hwnd:X8}");
+        var vm = _chipVms.FirstOrDefault(v => v.Handle == hwnd);
+        if (vm is null || vm.IsGrouped) return;
+
+        _previewWindow ??= CreatePreviewWindow();
+
+        var chipOrigin = sourceChip.PointToScreen(new System.Windows.Point(0, 0));
+        double previewW = _previewWindow.Width;
+        double left = chipOrigin.X + sourceChip.ActualWidth / 2.0 - previewW / 2.0;
+        double top  = _screen.Bounds.Top + PhysicalBarHeight() / GetDpiScale() + 4.0;
+        left = Math.Max(_screen.Bounds.Left, Math.Min(left, _screen.Bounds.Right - previewW));
+
+        string title = _prevWindows.FirstOrDefault(w => w.Handle == hwnd).Title ?? vm.Title;
+        _previewWindow.ShowForHwnd(hwnd, title, left, top, GetDpiScale());
     }
 
-    private static void HideHoverPreview()
-        => Debug.WriteLine("[HoverPreview] hide");
+    private HoverPreviewWindow CreatePreviewWindow()
+    {
+        var win = new HoverPreviewWindow();
+        win.MouseEnter += (_, _) => CancelHideTimer();
+        win.MouseLeave += (_, _) => StartHideTimer();
+        return win;
+    }
+
+    private void HideHoverPreview() => StartHideTimer();
+
+    private void CancelHoverTimer()
+    {
+        _hoverTimer?.Stop();
+        _hoverTimer = null;
+    }
+
+    private void CancelHideTimer()
+    {
+        _hideTimer?.Stop();
+        _hideTimer = null;
+    }
+
+    private void StartHideTimer()
+    {
+        CancelHideTimer();
+        _hideTimer = new DispatcherTimer(DispatcherPriority.Normal)
+            { Interval = TimeSpan.FromMilliseconds(200) };
+        _hideTimer.Tick += (_, _) =>
+        {
+            CancelHideTimer();
+            _previewWindow?.HidePreview();
+        };
+        _hideTimer.Start();
+    }
 
     private void WindowChipsScrollViewer_Drop(object sender, DragEventArgs e)
     {
