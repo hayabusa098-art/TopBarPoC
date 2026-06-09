@@ -861,6 +861,7 @@ public partial class TopBarWindow : Window
                     Hwnd = handle,
                     Title = info.Handle == IntPtr.Zero ? vm.Title : info.Title,
                     Activate = ActivatePreviewCard,
+                    Close    = ClosePreviewCard,
                     OverflowCount = index == visibleHandles.Count - 1 ? overflowCount : 0,
                 };
             })
@@ -875,6 +876,23 @@ public partial class TopBarWindow : Window
         _hoverHwnd = IntPtr.Zero;
         _previewWindow?.HidePreview();
         RestoreAndActivateWindow(hwnd, "[HoverPreviewActivate]");
+    }
+
+    private void ClosePreviewCard(IntPtr hwnd)
+    {
+        CancelHoverTimer();
+        CancelHideTimer();
+        _hoverHwnd = IntPtr.Zero;
+        _previewWindow?.HidePreview();
+        TryCloseWindow(hwnd, "[HoverPreviewClose]");
+        // Deferred check: log if the window survived WM_CLOSE (tray-resident or WM_CLOSE-intercepting apps).
+        // Fires one Dispatcher frame after PostMessage returns — enough for the app's message loop to
+        // have processed the message if it was going to destroy the window synchronously.
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+        {
+            if (IsWindow(hwnd))
+                Debug.WriteLine($"[HoverPreviewClose] hwnd=0x{hwnd:X8} survived WM_CLOSE — tray or WM_CLOSE-intercepting app");
+        }));
     }
 
     private HoverPreviewWindow CreatePreviewWindow()

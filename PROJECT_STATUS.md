@@ -16,6 +16,8 @@ Build42A diagnostics enablement and TB-001 live DPI validation completed locally
 
 Build42B P2 runtime taskbar auto-hide overlap hardening implemented locally.
 
+Build41C hover preview close button implemented locally.
+
 ## Build37 — Glass Minimal Refresh
 
 ### Current State
@@ -347,6 +349,26 @@ Observed:
 - limitation: live top-edge taskbar auto-hide toggle not directly reproducible on current
   machine (taskbar at bottom); ABN_POSCHANGED code path confirmed active via startup burst
 
+### Build41C
+
+- hover preview close button (TB-008 partial)
+- `×` button added to each preview card title row; `PreviewCardCloseButtonStyle` matches
+  existing grouped-selector close aesthetics
+- hide-before-close: `HidePreview()` (DWM thumbnail teardown + window hide) fires before
+  `TryCloseWindow` — no stale thumbnail after close action
+- `WM_CLOSE` sent via existing `TryCloseWindow` (PostMessage, SetLastError, diagnostic log)
+- grouped preview: each visible card gets its own `×`; closing any card hides the whole preview;
+  no dynamic card list mutation — 500ms poll removes the closed window naturally
+- `+N` overflow indicator unchanged
+- `PreviewCardVm.Close` property added with no-op default — `ShowForHwnd` path unaffected
+- `e.Handled = true` in `PreviewCardClose_Click` blocks outer card-body `Click` (no accidental activate)
+- survived-WM_CLOSE diagnostic: deferred `BeginInvoke(Background)` check logs
+  `survived WM_CLOSE — tray or WM_CLOSE-intercepting app` when `IsWindow(hwnd)` is still true
+  one pump cycle after PostMessage
+- known limitation: tray-resident and WM_CLOSE-intercepting apps (Discord, Steam, Slack, etc.)
+  do not close on WM_CLOSE by design; chip persists accurately reflecting real window state;
+  matches Windows taskbar behavior for the same apps; force-close is out of scope
+
 ## Key Findings
 
 - UW 100% - Large (40 DIP) feels best.
@@ -431,11 +453,10 @@ Residual visual polish only. Build37C / Build37D density behavior is already imp
 #### TB-008 Hover Preview Polish
 
 Base hover preview delivered in Build40. Grouped horizontal preview cards delivered in Build41A.
-Core hover preview polish delivered in Build41B.
+Core hover preview polish delivered in Build41B. Close button delivered in Build41C.
 
 Remaining work:
 
-* Hover close button
 * Animated fade in / out
 * Glass / transparency treatment (AllowsTransparency + DWM thumbnail validation)
 * Dynamic grouped preview removal after WM_CLOSE
@@ -462,7 +483,8 @@ correction preserved. No notification storm; no downward drift observed.
 
 #### P3 — Hover preview polish
 
-TB-008 follow-up. Hover close button, fade, glass / transparency, dynamic grouped preview removal.
+TB-008 follow-up. Close button delivered (Build41C). Remaining: fade, glass / transparency,
+dynamic grouped preview removal after WM_CLOSE.
 
 #### P3 — 10+ chip and reorder follow-up polish
 
@@ -505,7 +527,6 @@ Each preview card:
 
 #### Remaining polish topics
 
-* Individual × close button
 * Optional fade animation (DoubleAnimation on Opacity)
 * Optional glass / transparency treatment (AllowsTransparency + DWM thumbnail validation)
 * Dynamic grouped preview removal after WM_CLOSE
@@ -513,7 +534,7 @@ Each preview card:
 #### Priority intent
 
 Hover Preview Polish core is complete as Build41B.
-Close button remains gated for follow-up investigation and explicit approval.
+Close button delivered as Build41C.
 
 ---
 

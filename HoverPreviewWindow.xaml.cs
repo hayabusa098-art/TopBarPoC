@@ -99,6 +99,13 @@ public partial class HoverPreviewWindow : Window
         card.Activate(card.Hwnd);
     }
 
+    private void PreviewCardClose_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true; // prevent event from bubbling to the outer card Button
+        if (sender is not Button { DataContext: PreviewCardVm card }) return;
+        card.Close(card.Hwnd);
+    }
+
     private static void ApplyNoActivateStyle(IntPtr hwnd)
     {
         if (hwnd == IntPtr.Zero) return;
