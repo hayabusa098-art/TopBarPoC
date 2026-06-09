@@ -8,11 +8,38 @@
         ShowActivated="False"
         ResizeMode="NoResize"
         Width="280" Height="185"
-        Background="#10161C">
+        Background="#0B1117">
     <Window.Resources>
+        <LinearGradientBrush x:Key="PreviewWindowBackgroundBrush"
+                             StartPoint="0.5,0"
+                             EndPoint="0.5,1">
+            <GradientStop Color="#192832" Offset="0"/>
+            <GradientStop Color="#101920" Offset="0.18"/>
+            <GradientStop Color="#0B1117" Offset="1"/>
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="PreviewWindowBorderBrush"
+                             StartPoint="0.5,0"
+                             EndPoint="0.5,1">
+            <GradientStop Color="#52FFFFFF" Offset="0"/>
+            <GradientStop Color="#24FFFFFF" Offset="0.14"/>
+            <GradientStop Color="#14FFFFFF" Offset="1"/>
+        </LinearGradientBrush>
+        <SolidColorBrush x:Key="PreviewCardBackgroundBrush" Color="#111A21"/>
+        <SolidColorBrush x:Key="PreviewCardHoverBrush" Color="#17232C"/>
+        <SolidColorBrush x:Key="PreviewCardPressedBrush" Color="#0E171E"/>
+        <SolidColorBrush x:Key="PreviewCardDividerBrush" Color="#1FFFFFFF"/>
+        <SolidColorBrush x:Key="PreviewTitleStripBrush" Color="#E60D151B"/>
+        <SolidColorBrush x:Key="PreviewTitleForegroundBrush" Color="#D9E5E9EB"/>
+        <SolidColorBrush x:Key="PreviewBadgeBackgroundBrush" Color="#E616222A"/>
+        <SolidColorBrush x:Key="PreviewBadgeBorderBrush" Color="#38FFFFFF"/>
+        <SolidColorBrush x:Key="PreviewBadgeForegroundBrush" Color="#E8F1F4F5"/>
+        <SolidColorBrush x:Key="PreviewCloseForegroundBrush" Color="#AAB6BCC0"/>
+        <SolidColorBrush x:Key="PreviewCloseHoverBrush" Color="#C9484C"/>
+        <SolidColorBrush x:Key="PreviewClosePressedBrush" Color="#A93438"/>
+
         <Style x:Key="PreviewCardCloseButtonStyle" TargetType="Button">
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#7C8082"/>
+            <Setter Property="Foreground"      Value="{StaticResource PreviewCloseForegroundBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Width"           Value="18"/>
             <Setter Property="Height"          Value="18"/>
@@ -33,11 +60,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#CC2222"/>
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource PreviewCloseHoverBrush}"/>
                                 <Setter Property="Foreground" Value="#FFFFFF"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#991111"/>
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource PreviewClosePressedBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -45,15 +72,9 @@
             </Setter>
         </Style>
     </Window.Resources>
-    <Border Background="#10161C"
+    <Border Background="{StaticResource PreviewWindowBackgroundBrush}"
+            BorderBrush="{StaticResource PreviewWindowBorderBrush}"
             BorderThickness="1">
-        <Border.BorderBrush>
-            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Color="#38FFFFFF" Offset="0"/>
-                <GradientStop Color="#28FFFFFF" Offset="0.1"/>
-                <GradientStop Color="#28FFFFFF" Offset="1"/>
-            </LinearGradientBrush>
-        </Border.BorderBrush>
         <ItemsControl x:Name="CardsHost">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -67,8 +88,8 @@
                             Width="280"
                             Height="185"
                             Margin="0,0,10,0"
-                            Background="#10161C"
-                            BorderBrush="#28FFFFFF"
+                            Background="{StaticResource PreviewCardBackgroundBrush}"
+                            BorderBrush="{StaticResource PreviewCardDividerBrush}"
                             BorderThickness="0,0,1,0"
                             Padding="0"
                             Cursor="Hand"
@@ -83,10 +104,10 @@
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="border" Property="Background" Value="#151D25"/>
+                                        <Setter TargetName="border" Property="Background" Value="{StaticResource PreviewCardHoverBrush}"/>
                                     </Trigger>
                                     <Trigger Property="IsPressed" Value="True">
-                                        <Setter TargetName="border" Property="Background" Value="#111820"/>
+                                        <Setter TargetName="border" Property="Background" Value="{StaticResource PreviewCardPressedBrush}"/>
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -102,8 +123,8 @@
                                     VerticalAlignment="Top"
                                     Margin="0,8,8,0"
                                     Padding="7,2"
-                                    Background="#CC10161C"
-                                    BorderBrush="#2AFFFFFF"
+                                    Background="{StaticResource PreviewBadgeBackgroundBrush}"
+                                    BorderBrush="{StaticResource PreviewBadgeBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="8">
                                 <Border.Style>
@@ -117,14 +138,18 @@
                                     </Style>
                                 </Border.Style>
                                 <TextBlock Text="{Binding OverflowCount, StringFormat=+{0}}"
-                                           Foreground="#D6E8EA"
+                                           Foreground="{StaticResource PreviewBadgeForegroundBrush}"
                                            FontFamily="Segoe UI"
                                            FontSize="10"
                                            FontWeight="SemiBold"/>
                             </Border>
+                            <Border Grid.Row="1"
+                                    Background="{StaticResource PreviewTitleStripBrush}"
+                                    BorderBrush="#16FFFFFF"
+                                    BorderThickness="0,1,0,0"/>
                             <TextBlock Grid.Row="1"
                                        Text="{Binding Title}"
-                                       Foreground="#8CC8CDD6"
+                                       Foreground="{StaticResource PreviewTitleForegroundBrush}"
                                        FontFamily="Segoe UI"
                                        FontSize="10"
                                        VerticalAlignment="Center"
