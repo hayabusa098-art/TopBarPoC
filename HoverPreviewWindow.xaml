@@ -8,7 +8,7 @@
         ShowActivated="False"
         ResizeMode="NoResize"
         Width="280" Height="185"
-        Background="#0E1318">
+        Background="#10161C">
     <Window.Resources>
         <Style x:Key="PreviewCardCloseButtonStyle" TargetType="Button">
             <Setter Property="Background"      Value="Transparent"/>
@@ -45,9 +45,15 @@
             </Setter>
         </Style>
     </Window.Resources>
-    <Border Background="#0E1318"
-            BorderBrush="#1AFFFFFF"
+    <Border Background="#10161C"
             BorderThickness="1">
+        <Border.BorderBrush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="#38FFFFFF" Offset="0"/>
+                <GradientStop Color="#28FFFFFF" Offset="0.1"/>
+                <GradientStop Color="#28FFFFFF" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.BorderBrush>
         <ItemsControl x:Name="CardsHost">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -61,8 +67,8 @@
                             Width="280"
                             Height="185"
                             Margin="0,0,10,0"
-                            Background="#0E1318"
-                            BorderBrush="#1AFFFFFF"
+                            Background="#10161C"
+                            BorderBrush="#28FFFFFF"
                             BorderThickness="0,0,1,0"
                             Padding="0"
                             Cursor="Hand"
@@ -77,10 +83,10 @@
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="border" Property="Background" Value="#141B22"/>
+                                        <Setter TargetName="border" Property="Background" Value="#151D25"/>
                                     </Trigger>
                                     <Trigger Property="IsPressed" Value="True">
-                                        <Setter TargetName="border" Property="Background" Value="#10161C"/>
+                                        <Setter TargetName="border" Property="Background" Value="#111820"/>
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
