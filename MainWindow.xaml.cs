@@ -877,6 +877,27 @@ public partial class TopBarWindow : Window
             .ToList();
     }
 
+    private List<PreviewCardVm> BuildPreviewCardsExcluding(WindowChipVm vm, IntPtr excludeHwnd)
+    {
+        var handles = vm.Handles.Where(h => h != excludeHwnd && IsWindow(h)).ToList();
+        int overflowCount = Math.Max(0, handles.Count - MaxVisiblePreviewCards);
+        var visibleHandles = handles.Take(MaxVisiblePreviewCards).ToList();
+        return visibleHandles
+            .Select((handle, index) =>
+            {
+                var info = _prevWindows.FirstOrDefault(w => w.Handle == handle);
+                return new PreviewCardVm
+                {
+                    Hwnd          = handle,
+                    Title         = info.Handle == IntPtr.Zero ? vm.Title : info.Title,
+                    Activate      = ActivatePreviewCard,
+                    Close         = ClosePreviewCard,
+                    OverflowCount = index == visibleHandles.Count - 1 ? overflowCount : 0,
+                };
+            })
+            .ToList();
+    }
+
     private void ActivatePreviewCard(IntPtr hwnd)
     {
         if (!IsWindow(hwnd)) return;
@@ -892,8 +913,25 @@ public partial class TopBarWindow : Window
         CancelHoverTimer();
         CancelHideTimer();
         _hoverHwnd = IntPtr.Zero;
-        _previewWindow?.HidePreview();
         TryCloseWindow(hwnd, "[HoverPreviewClose]");
+
+        bool rebuilt = false;
+        if (_previewWindow is { } pw && pw.IsVisible)
+        {
+            var chipVm = _chipVms.FirstOrDefault(vm => vm.Handles.Contains(hwnd));
+            if (chipVm != null)
+            {
+                var nextCards = BuildPreviewCardsExcluding(chipVm, hwnd);
+                if (nextCards.Count > 0)
+                {
+                    pw.ShowForCards(nextCards, pw.Left, pw.Top, GetDpiScale());
+                    rebuilt = true;
+                }
+            }
+        }
+        if (!rebuilt)
+            _previewWindow?.HidePreview();
+
         // Deferred check: log if the window survived WM_CLOSE (tray-resident or WM_CLOSE-intercepting apps).
         // Fires one Dispatcher frame after PostMessage returns — enough for the app's message loop to
         // have processed the message if it was going to destroy the window synchronously.
