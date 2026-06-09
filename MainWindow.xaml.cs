@@ -36,6 +36,7 @@ public partial class TopBarWindow : Window
     private static readonly List<IntPtr> _windowOrder = [];
     private static readonly List<string> _appOrder = [];
     private readonly Dictionary<IntPtr, ImageSource?> _iconCache = new();
+    private static readonly Dictionary<IntPtr, string> _windowDiagnosticSignatures = new();
     private readonly Dictionary<string, IntPtr> _lastGroupCycleHandles =
         new(StringComparer.OrdinalIgnoreCase);
     private bool             _appBarRegistered;
@@ -524,48 +525,78 @@ public partial class TopBarWindow : Window
         var selfPid  = (uint)Environment.ProcessId;
         var appIdentityCache = new Dictionary<uint, (string Key, string Label)>();
         var pidDenyCache     = new Dictionary<uint, bool>();  // true = denied system process
+        var processNameCache = new Dictionary<uint, string>();
+        var enumeratedHandles = new HashSet<IntPtr>();
 
         EnumWindowsProc callback = (hWnd, _) =>
         {
+            enumeratedHandles.Add(hWnd);
             bool isMinimized = IsIconic(hWnd);
-            if ((!IsWindowVisible(hWnd) && !isMinimized) || hWnd == shellWnd) return true;
+            bool isVisible = IsWindowVisible(hWnd);
 
             var textLen = GetWindowTextLength(hWnd);
-            if (textLen == 0) return true;
 
-            // Style checks are cheap Win32 calls; filter tool/owned windows before the
-            // more expensive IsCloaked (DWM COM) and IsDeniedSystemProcess (process handle).
+            // Collect the complete diagnostic snapshot before applying the existing
+            // eligibility checks in their original order.
             int  exStyle      = GetWindowLong(hWnd, GWL_EXSTYLE);
             bool isToolWindow = (exStyle & WS_EX_TOOLWINDOW) != 0;
             bool isAppWindow  = (exStyle & WS_EX_APPWINDOW)  != 0;
             bool isNoActivate = (exStyle & WS_EX_NOACTIVATE) != 0;
-            bool hasOwner     = NativeMethods.GetWindow(hWnd, GW_OWNER) != IntPtr.Zero;
-            if (!isAppWindow && (hasOwner || isToolWindow || isNoActivate)) return true;
+            IntPtr ownerHwnd  = NativeMethods.GetWindow(hWnd, GW_OWNER);
+            bool hasOwner     = ownerHwnd != IntPtr.Zero;
 
             var classBuf = new StringBuilder(64);
             GetClassName(hWnd, classBuf, classBuf.Capacity);
-            if (classBuf.ToString() is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd"
-                                    or "DV2ControlHost" or "WorkerW") return true;
+            string className = classBuf.ToString();
 
             GetWindowThreadProcessId(hWnd, out uint pid);
-            if (pid == selfPid) return true;
-            if (IsCloaked(hWnd)) return true;
+            bool isCloaked = IsCloaked(hWnd);
+            if (!processNameCache.TryGetValue(pid, out string? processName))
+                processNameCache[pid] = processName = GetProcessNameForDiagnostics(pid);
 
-            // Cache the deny result per PID to avoid repeated Process.GetProcessById
-            // calls for apps with multiple windows (e.g. File Explorer, browsers).
-            if (!pidDenyCache.TryGetValue(pid, out bool isDenied))
-                pidDenyCache[pid] = isDenied = IsDeniedSystemProcess(pid);
-            if (isDenied) return true;
-
-            var sb = new StringBuilder(textLen + 1);
-            GetWindowText(hWnd, sb, sb.Capacity);
+            var sb = new StringBuilder(Math.Max(textLen + 1, 1));
+            if (textLen > 0)
+                GetWindowText(hWnd, sb, sb.Capacity);
             string title = sb.ToString();
-            if (string.IsNullOrWhiteSpace(title)) return true;
 
-            Debug.WriteLine(
-                $"[WindowEnum] include hwnd=0x{hWnd:X8} proc={pid} owner={hasOwner} " +
-                $"app={isAppWindow} tool={isToolWindow} noActivate={isNoActivate} " +
-                $"iconic={isMinimized} title=\"{title}\"");
+            bool include;
+            string reason;
+            if (!isVisible && !isMinimized)
+                (include, reason) = (false, "not-visible-and-not-minimized");
+            else if (hWnd == shellWnd)
+                (include, reason) = (false, "shell-window");
+            else if (textLen == 0)
+                (include, reason) = (false, "empty-title-length");
+            else if (!isAppWindow && (hasOwner || isToolWindow || isNoActivate))
+                (include, reason) = (false, "owned-tool-or-noactivate");
+            else if (className is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd"
+                                  or "DV2ControlHost" or "WorkerW")
+                (include, reason) = (false, "filtered-class");
+            else if (pid == selfPid)
+                (include, reason) = (false, "self-process");
+            else if (isCloaked)
+                (include, reason) = (false, "dwm-cloaked");
+            else
+            {
+                // Cache the deny result per PID to avoid repeated Process.GetProcessById
+                // calls for apps with multiple windows (e.g. File Explorer, browsers).
+                if (!pidDenyCache.TryGetValue(pid, out bool isDenied))
+                    pidDenyCache[pid] = isDenied = IsDeniedSystemProcess(pid);
+
+                if (isDenied)
+                    (include, reason) = (false, "denied-system-process");
+                else if (string.IsNullOrWhiteSpace(title))
+                    (include, reason) = (false, "blank-title");
+                else
+                    (include, reason) = (true, "eligible");
+            }
+
+            LogWindowEnumerationDecision(
+                hWnd, include, reason, title, className, processName, pid,
+                isVisible, isMinimized, ownerHwnd, isCloaked, exStyle,
+                isAppWindow, isToolWindow, isNoActivate);
+
+            if (!include) return true;
 
             if (!appIdentityCache.TryGetValue(pid, out var identity))
             {
@@ -578,8 +609,64 @@ public partial class TopBarWindow : Window
             return true;
         };
         EnumWindows(callback, IntPtr.Zero);
+        foreach (var vanishedHwnd in _windowDiagnosticSignatures.Keys
+                     .Where(hWnd => !enumeratedHandles.Contains(hWnd))
+                     .ToList())
+            _windowDiagnosticSignatures.Remove(vanishedHwnd);
         return result;
     }
+
+    private void LogWindowEnumerationDecision(
+        IntPtr hWnd,
+        bool include,
+        string reason,
+        string title,
+        string className,
+        string processName,
+        uint pid,
+        bool isVisible,
+        bool isMinimized,
+        IntPtr ownerHwnd,
+        bool isCloaked,
+        int exStyle,
+        bool isAppWindow,
+        bool isToolWindow,
+        bool isNoActivate)
+    {
+        string signature =
+            $"decision={(include ? "include" : "exclude")} reason={reason} " +
+            $"hwnd=0x{hWnd.ToInt64():X} pid={pid} process=\"{EscapeDiagnosticValue(processName)}\" " +
+            $"title=\"{EscapeDiagnosticValue(title)}\" class=\"{EscapeDiagnosticValue(className)}\" " +
+            $"visible={isVisible} iconic={isMinimized} owner=0x{ownerHwnd.ToInt64():X} " +
+            $"cloaked={isCloaked} exStyle=0x{unchecked((uint)exStyle):X8} " +
+            $"app={isAppWindow} tool={isToolWindow} noActivate={isNoActivate}";
+
+        if (_windowDiagnosticSignatures.TryGetValue(hWnd, out string? previous) &&
+            previous == signature)
+            return;
+
+        _windowDiagnosticSignatures[hWnd] = signature;
+        DiagnosticsLog.WriteLine($"[WindowEnum] {signature}");
+    }
+
+    private static string GetProcessNameForDiagnostics(uint pid)
+    {
+        try
+        {
+            using var process = Process.GetProcessById((int)pid);
+            return process.ProcessName;
+        }
+        catch
+        {
+            return "<unavailable>";
+        }
+    }
+
+    private static string EscapeDiagnosticValue(string value)
+        => value.Replace("\\", "\\\\", StringComparison.Ordinal)
+                .Replace("\"", "\\\"", StringComparison.Ordinal)
+                .Replace("\r", "\\r", StringComparison.Ordinal)
+                .Replace("\n", "\\n", StringComparison.Ordinal);
 
     private static (string Key, string Label) ResolveAppIdentity(uint pid, IntPtr hwnd)
     {

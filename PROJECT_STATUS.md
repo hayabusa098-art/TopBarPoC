@@ -19,6 +19,8 @@ Build44B portable release workflow completed. No runtime code changes were made.
 
 Build44C work-PC trial checklist prepared. No runtime code changes were made.
 
+Build45B TB-007 Diagnostics First completed and runtime-validated.
+
 Work-PC trial package:
 
 * path: `artifacts\publish\workpc\TopBarPoC-workpc-win-x64.zip`
@@ -68,6 +70,22 @@ The trial checklist covers:
 
 Findings will be categorized as blocker, daily-use risk, minor issue, or passed.
 Code changes require a specific reproduced failure and approval.
+
+## Build45 - TB-007 Non-Taskbar Surface Diagnostics
+
+### Completed - Build45B Diagnostics First
+
+* Added Release-visible `[WindowEnum]` diagnostics for included and excluded windows.
+* Diagnostics record the final decision and reason together with HWND, title, class name,
+  process name and ID, visibility, owner, DWM cloaked state, and extended window styles.
+* Added state-change deduplication and removal of vanished HWNDs from the diagnostic cache.
+* Existing window eligibility behavior and filter ordering remain unchanged.
+* No new deny lists or process-name filters were added.
+* `dotnet build` passed with 0 warnings and 0 errors.
+* `git diff --check` passed.
+* Runtime validation confirmed that known Steam and Discord helper surfaces were excluded.
+* The previously observed unexpected helper chip was not reproduced during validation.
+* TB-007 remains open as a watch item during the Build44C work-PC trial and daily use.
 
 ## Build37 — Glass Minimal Refresh
 
@@ -507,6 +525,11 @@ Notes:
 * prefer investigation + targeted filtering
 * avoid blanket ApplicationFrameHost removal
 * avoid aggressive deny lists without evidence
+* Build45B added Release-visible, state-change-deduplicated `[WindowEnum]` diagnostics
+  without changing eligibility behavior
+* Build45B runtime validation excluded the observed Steam and Discord helper surfaces;
+  the unexpected helper chip was not reproduced
+* keep TB-007 open as a watch item during Build44C work-PC trial and daily use
 
 ### P3 Optional
 
