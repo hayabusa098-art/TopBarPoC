@@ -4,14 +4,14 @@
 
 Latest commits:
 
+27e1b71 feat: add hover preview fade-out animation
+29f728d diagnostics: add TB-007 window enumeration tracing
+4df9b8e docs: update work-pc trial status
 677480c docs: add work-pc portable release workflow
 deaa288 style: polish hover preview glass appearance
 fa51923 feat: keep grouped hover preview open after close
-2144146 docs: sync project status after build43a
-efc06f9 feat: add hover preview fade-in animation
-a4a5ab6 diagnostics: add mixed dpi validation logging
 
-Latest commit: 677480c docs: add work-pc portable release workflow.
+Latest commit: 27e1b71 feat: add hover preview fade-out animation.
 
 Build44A work-PC readiness investigation completed.
 
@@ -21,6 +21,8 @@ Build44C work-PC trial checklist prepared. No runtime code changes were made.
 
 Build45B TB-007 Diagnostics First completed and runtime-validated.
 
+Build46A Hover Preview Fade Animation completed and manually verified.
+
 Work-PC trial package:
 
 * path: `artifacts\publish\workpc\TopBarPoC-workpc-win-x64.zip`
@@ -29,11 +31,15 @@ Work-PC trial package:
 
 Repository state:
 
-* `master` and `origin/master` are synced at 677480c
-* tracked working tree is clean
+* `master` and `origin/master` are synced at 27e1b71
+* tracked working tree contains only the pending `PROJECT_STATUS.md` documentation update
 * `.claude/` is untracked
 
-Next action: transfer the ZIP to an authorized work PC and run the Build44C trial checklist.
+Current focus:
+
+* completed: Build46A - Hover Preview Fade Animation
+* next: Build46B - Hover Preview Glass Polish
+* after: Build46C - Grouped Preview Close Button
 
 ## Build44 - Work-PC Trial Preparation
 
@@ -86,6 +92,31 @@ Code changes require a specific reproduced failure and approval.
 * Runtime validation confirmed that known Steam and Discord helper surfaces were excluded.
 * The previously observed unexpected helper chip was not reproduced during validation.
 * TB-007 remains open as a watch item during the Build44C work-PC trial and daily use.
+
+## Build46 - Hover Preview Polish
+
+### Completed - Build46A Hover Preview Fade Animation
+
+* Added a 150ms hover preview fade-out animation for ordinary hover departure.
+* Preserved the existing fade-in behavior.
+* Added a generation/version guard so stale animation completion cannot hide a newly
+  shown or rebuilt preview.
+* Added fade-out cancellation when the pointer re-enters the preview.
+* Kept DWM thumbnails registered throughout fade-out and delayed teardown until the
+  animation completes.
+* Preserved immediate teardown for drag operations, activation paths, display refresh,
+  shutdown, and final-card close.
+* Singleton and grouped previews continue to share the existing card and window lifecycle.
+* `dotnet build` passed with 0 warnings and 0 errors.
+* `git diff --check` passed.
+* Manual verification passed.
+* Commit: 27e1b71 feat: add hover preview fade-out animation
+* Commit pushed; `master` and `origin/master` are synced.
+
+### Next
+
+* Build46B - Hover Preview Glass Polish
+* Build46C - Grouped Preview Close Button
 
 ## Build37 — Glass Minimal Refresh
 
@@ -544,7 +575,6 @@ Core hover preview polish delivered in Build41B. Close button delivered in Build
 
 Remaining work:
 
-* Animated fade in / out
 * Glass / transparency treatment (AllowsTransparency + DWM thumbnail validation)
 * Dynamic grouped preview removal after WM_CLOSE
 
@@ -557,7 +587,17 @@ Potential user-selectable display modes:
 
 ### Next Build Candidates
 
-#### Next - Build44C Real Work-PC Trial Execution
+#### Next - Build46B Hover Preview Glass Polish
+
+Continue hover preview visual refinement with the glass treatment scoped separately from
+the completed Build46A animation lifecycle work.
+
+#### After - Build46C Grouped Preview Close Button
+
+Continue the grouped preview close-button work as a separate build without expanding the
+Build46A animation scope.
+
+#### Parallel - Build44C Real Work-PC Trial Execution
 
 Transfer the verified portable ZIP to an authorized work PC and execute the prepared
 trial checklist. Record corporate security results, AppBar lifecycle behavior, runtime
@@ -575,8 +615,8 @@ All exercisable scenarios passed. See TB-001 section in Active Backlog for full 
 
 #### P1 — Hover preview polish (remaining visual refinements)
 
-TB-008 follow-up. Close button delivered (Build41C). Remaining: fade animation,
-glass / transparency treatment, dynamic grouped preview removal after WM_CLOSE.
+TB-008 follow-up. Fade animation completed in Build46A. Close button delivered in Build41C.
+Remaining: glass / transparency treatment and dynamic grouped preview removal after WM_CLOSE.
 
 #### P2 — Runtime taskbar auto-hide coexistence hardening
 
@@ -599,6 +639,7 @@ Build40 delivers single-window DWM hover preview.
 Build41A delivers grouped horizontal preview cards.
 Build41B delivers core hover preview polish.
 Build41C delivers hover preview close button.
+Build46A delivers hover preview fade-in/fade-out lifecycle polish.
 
 #### Planned direction
 
@@ -627,7 +668,6 @@ Each preview card:
 
 #### Remaining polish topics
 
-* Optional fade animation (DoubleAnimation on Opacity)
 * Optional glass / transparency treatment (AllowsTransparency + DWM thumbnail validation)
 * Dynamic grouped preview removal after WM_CLOSE
 
@@ -635,6 +675,7 @@ Each preview card:
 
 Hover Preview Polish core is complete as Build41B.
 Close button delivered as Build41C.
+Fade animation delivered as Build46A.
 
 ---
 
