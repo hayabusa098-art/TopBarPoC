@@ -56,6 +56,9 @@ public partial class TopBarWindow : Window
     private DispatcherTimer?     _hoverTimer;
     private HoverPreviewWindow?  _previewWindow;
     private DispatcherTimer?     _hideTimer;
+    private readonly HashSet<IntPtr> _pendingPreviewCloseHwnds = [];
+    private int _previewSessionGeneration;
+    private bool _previewFadeOutRequested;
     private double               _currentChipGap = 3.0;
     private ChipDensityMode _chipDensityMode = ChipDensityMode.Balanced;
     private const int MaxVisiblePreviewCards = 4;
@@ -939,6 +942,8 @@ public partial class TopBarWindow : Window
             $"chipDevice=({chipOriginDevice.X:F1},{chipOriginDevice.Y:F1}) " +
             $"chipDip=({chipOriginDip.X:F1},{chipOriginDip.Y:F1}) " +
             $"previewDip=({left:F1},{top:F1}) boundsDip=({screenLeftDip:F1},{screenRightDip:F1})");
+        _previewSessionGeneration++;
+        _previewFadeOutRequested = false;
         _previewWindow.ShowForCards(cards, left, top, dpiScale);
     }
 
@@ -964,27 +969,6 @@ public partial class TopBarWindow : Window
             .ToList();
     }
 
-    private List<PreviewCardVm> BuildPreviewCardsExcluding(WindowChipVm vm, IntPtr excludeHwnd)
-    {
-        var handles = vm.Handles.Where(h => h != excludeHwnd && IsWindow(h)).ToList();
-        int overflowCount = Math.Max(0, handles.Count - MaxVisiblePreviewCards);
-        var visibleHandles = handles.Take(MaxVisiblePreviewCards).ToList();
-        return visibleHandles
-            .Select((handle, index) =>
-            {
-                var info = _prevWindows.FirstOrDefault(w => w.Handle == handle);
-                return new PreviewCardVm
-                {
-                    Hwnd          = handle,
-                    Title         = info.Handle == IntPtr.Zero ? vm.Title : info.Title,
-                    Activate      = ActivatePreviewCard,
-                    Close         = ClosePreviewCard,
-                    OverflowCount = index == visibleHandles.Count - 1 ? overflowCount : 0,
-                };
-            })
-            .ToList();
-    }
-
     private void ActivatePreviewCard(IntPtr hwnd)
     {
         if (!IsWindow(hwnd)) return;
@@ -1000,39 +984,72 @@ public partial class TopBarWindow : Window
         CancelHoverTimer();
         CancelHideTimer();
         _hoverHwnd = IntPtr.Zero;
+
+        var chipVm = _chipVms.FirstOrDefault(vm => vm.Handles.Contains(hwnd));
+        bool isGroupedClose = chipVm != null && chipVm.Handles.Count(IsWindow) > 1;
+        if (!isGroupedClose)
+        {
+            _previewWindow?.HidePreview();
+            TryCloseWindow(hwnd, "[HoverPreviewClose]");
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                if (IsWindow(hwnd))
+                    Debug.WriteLine(
+                        $"[HoverPreviewClose] hwnd=0x{hwnd:X8} survived WM_CLOSE — tray or WM_CLOSE-intercepting app");
+            }));
+            return;
+        }
+
+        if (!_pendingPreviewCloseHwnds.Add(hwnd)) return;
+
+        int previewSession = _previewSessionGeneration;
         TryCloseWindow(hwnd, "[HoverPreviewClose]");
 
-        bool rebuilt = false;
-        if (_previewWindow is { } pw && pw.IsVisible)
+        const int maxConfirmationChecks = 8;
+        int confirmationChecks = 0;
+        var confirmationTimer = new DispatcherTimer(DispatcherPriority.Normal)
+            { Interval = TimeSpan.FromMilliseconds(50) };
+        confirmationTimer.Tick += (_, _) =>
         {
-            var chipVm = _chipVms.FirstOrDefault(vm => vm.Handles.Contains(hwnd));
-            if (chipVm != null)
-            {
-                var nextCards = BuildPreviewCardsExcluding(chipVm, hwnd);
-                if (nextCards.Count > 0)
-                {
-                    pw.ShowForCards(nextCards, pw.Left, pw.Top, GetDpiScale());
-                    rebuilt = true;
-                }
-            }
-        }
-        if (!rebuilt)
-            _previewWindow?.HidePreview();
+            confirmationChecks++;
+            bool destroyed = !IsWindow(hwnd);
+            bool timedOut = confirmationChecks >= maxConfirmationChecks;
+            var previewWindow = _previewWindow;
+            bool stalePreview = _closing ||
+                                _previewFadeOutRequested ||
+                                previewSession != _previewSessionGeneration ||
+                                previewWindow is not { IsVisible: true };
+            if (!destroyed && !timedOut && !stalePreview) return;
 
-        // Deferred check: log if the window survived WM_CLOSE (tray-resident or WM_CLOSE-intercepting apps).
-        // Fires one Dispatcher frame after PostMessage returns — enough for the app's message loop to
-        // have processed the message if it was going to destroy the window synchronously.
-        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
-        {
-            if (IsWindow(hwnd))
-                Debug.WriteLine($"[HoverPreviewClose] hwnd=0x{hwnd:X8} survived WM_CLOSE — tray or WM_CLOSE-intercepting app");
-        }));
+            confirmationTimer.Stop();
+            _pendingPreviewCloseHwnds.Remove(hwnd);
+
+            if (stalePreview) return;
+            if (!destroyed)
+            {
+                Debug.WriteLine(
+                    $"[HoverPreviewClose] hwnd=0x{hwnd:X8} survived WM_CLOSE — tray or WM_CLOSE-intercepting app");
+                return;
+            }
+
+            var nextCards = BuildPreviewCards(chipVm!);
+            if (nextCards.Count == 0)
+                previewWindow!.HidePreview();
+            else
+                previewWindow!.ShowForCards(
+                    nextCards, previewWindow.Left, previewWindow.Top, GetDpiScale());
+        };
+        confirmationTimer.Start();
     }
 
     private HoverPreviewWindow CreatePreviewWindow()
     {
         var win = new HoverPreviewWindow();
-        win.MouseEnter += (_, _) => CancelHideTimer();
+        win.MouseEnter += (_, _) =>
+        {
+            _previewFadeOutRequested = false;
+            CancelHideTimer();
+        };
         win.MouseLeave += (_, _) => StartHideTimer();
         return win;
     }
@@ -1059,6 +1076,7 @@ public partial class TopBarWindow : Window
         _hideTimer.Tick += (_, _) =>
         {
             CancelHideTimer();
+            _previewFadeOutRequested = true;
             _previewWindow?.FadeOutPreview();
         };
         _hideTimer.Start();
