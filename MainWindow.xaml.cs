@@ -81,6 +81,10 @@ public partial class TopBarWindow : Window
         Left  = -32000;
         Top   = -32000;
         Width = screen.Bounds.Width / scale;
+        Debug.WriteLine(
+            $"[BarInit] screen={screen.DeviceName} bounds={screen.Bounds} " +
+            $"boundsWidth={screen.Bounds.Width} dpiScale={scale:F2} " +
+            $"computedWidthDip={Width:F1} barHeightDip={barHeightDip}");
 
         SourceInitialized += (_, _) =>
         {
@@ -114,6 +118,7 @@ public partial class TopBarWindow : Window
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        LogAllScreensDpi();
         RegisterAppBar();
         if (!_displaySettingsSubscribed)
         {
@@ -207,6 +212,9 @@ public partial class TopBarWindow : Window
             _previewWindow?.HidePreview();
 
             Width = _screen.Bounds.Width / dpiScale;
+            Debug.WriteLine(
+                $"[BarWidthCalc] screen={_screen.DeviceName} boundsWidth={_screen.Bounds.Width} " +
+                $"dpiScale={dpiScale:F2} computedWidthDip={Width:F1}");
             RefreshPosition();
             Debug.WriteLine(
                 $"[DisplayRefresh] old={oldScreen.DeviceName} bounds={oldScreen.Bounds} " +
@@ -215,6 +223,7 @@ public partial class TopBarWindow : Window
                 $"width={widthBefore:F1}->{Width:F1} left={leftBefore:F1}->{Left:F1} top={topBefore:F1}->{Top:F1} " +
                 $"actual=({actualWidthBefore:F1},{actualHeightBefore:F1})->({ActualWidth:F1},{ActualHeight:F1}) " +
                 $"dpiScale={dpiScale:F2} appBarRegistered={_appBarRegistered}");
+            LogAllScreensDpi();
             RecalcChipWidth();
             QueueWindowChipOverflowFadeRefresh();
         }));
@@ -1582,6 +1591,25 @@ public partial class TopBarWindow : Window
         Debug.WriteLine(
             $"[DpiChanged] dpiX={dpiX} dpiY={dpiY} " +
             $"suggested=({suggested.Left},{suggested.Top},{suggested.Right},{suggested.Bottom})");
+    }
+
+    private static void LogAllScreensDpi()
+    {
+        var screens = WinFormsScreen.AllScreens;
+        uint? firstDpi = null;
+        bool hasMixed = false;
+        var sb = new StringBuilder();
+        foreach (var s in screens)
+        {
+            int cx  = s.Bounds.X + s.Bounds.Width  / 2;
+            int cy  = s.Bounds.Y + s.Bounds.Height / 2;
+            var mon = MonitorFromPoint(new POINT { X = cx, Y = cy }, 2u);
+            GetDpiForMonitor(mon, 0, out uint dpiX, out _);
+            if (firstDpi is null) firstDpi = dpiX;
+            else if (dpiX != firstDpi) hasMixed = true;
+            sb.Append($" | {s.DeviceName} bounds={s.Bounds} dpi={dpiX}");
+        }
+        Debug.WriteLine($"[AllScreensDpi] count={screens.Length} hasMixed={hasMixed}{sb}");
     }
 
     private double GetDpiScale()
