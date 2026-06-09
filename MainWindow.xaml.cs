@@ -1059,7 +1059,7 @@ public partial class TopBarWindow : Window
         _hideTimer.Tick += (_, _) =>
         {
             CancelHideTimer();
-            _previewWindow?.HidePreview();
+            _previewWindow?.FadeOutPreview();
         };
         _hideTimer.Start();
     }

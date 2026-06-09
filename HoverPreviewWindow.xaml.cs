@@ -15,10 +15,13 @@ public partial class HoverPreviewWindow : Window
 
     private readonly List<IntPtr> _thumbnailHandles = [];
     private IReadOnlyList<PreviewCardVm> _cards = [];
+    private int _visibilityGeneration;
+    private bool _isFadingOut;
 
     public HoverPreviewWindow()
     {
         InitializeComponent();
+        MouseEnter += (_, _) => CancelFadeOut();
         SourceInitialized += (_, _) =>
         {
             var hwnd = new WindowInteropHelper(this).Handle;
@@ -44,6 +47,11 @@ public partial class HoverPreviewWindow : Window
     internal void ShowForCards(IReadOnlyList<PreviewCardVm> cards, double screenLeft, double screenTop, double dpiScale)
     {
         bool wasHidden = !IsVisible;
+        _visibilityGeneration++;
+        _isFadingOut = false;
+        BeginAnimation(OpacityProperty, null);
+        if (!wasHidden)
+            Opacity = 1.0;
         ReleaseThumbnails();
         _cards = cards;
         CardsHost.ItemsSource = _cards;
@@ -91,14 +99,50 @@ public partial class HoverPreviewWindow : Window
 
     internal void HidePreview()
     {
-        BeginAnimation(OpacityProperty, null); // cancel any in-progress fade-in
+        _visibilityGeneration++;
+        _isFadingOut = false;
+        BeginAnimation(OpacityProperty, null); // cancel any in-progress fade
         Opacity = 1.0;                          // reset for next show cycle
         ReleaseThumbnails();
         Hide();
     }
 
+    internal void FadeOutPreview()
+    {
+        if (!IsVisible) return;
+
+        int generation = ++_visibilityGeneration;
+        _isFadingOut = true;
+        double startOpacity = Opacity;
+        BeginAnimation(OpacityProperty, null);
+        Opacity = startOpacity;
+
+        var animation = new DoubleAnimation(startOpacity, 0.0,
+            new Duration(TimeSpan.FromMilliseconds(150)))
+            { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
+        animation.Completed += (_, _) =>
+        {
+            if (generation == _visibilityGeneration && _isFadingOut)
+                HidePreview();
+        };
+        BeginAnimation(OpacityProperty, animation);
+    }
+
+    private void CancelFadeOut()
+    {
+        if (!_isFadingOut) return;
+
+        _visibilityGeneration++;
+        _isFadingOut = false;
+        BeginAnimation(OpacityProperty, null);
+        Opacity = 1.0;
+    }
+
     protected override void OnClosed(EventArgs e)
     {
+        _visibilityGeneration++;
+        _isFadingOut = false;
+        BeginAnimation(OpacityProperty, null);
         ReleaseThumbnails();
         base.OnClosed(e);
     }
