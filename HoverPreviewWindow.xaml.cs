@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
+using System.Windows.Media.Animation;
 using static TopBarPoC.NativeMethods;
 
 namespace TopBarPoC;
@@ -42,6 +43,7 @@ public partial class HoverPreviewWindow : Window
 
     internal void ShowForCards(IReadOnlyList<PreviewCardVm> cards, double screenLeft, double screenTop, double dpiScale)
     {
+        bool wasHidden = !IsVisible;
         ReleaseThumbnails();
         _cards = cards;
         CardsHost.ItemsSource = _cards;
@@ -78,11 +80,19 @@ public partial class HoverPreviewWindow : Window
             card.ThumbnailAvailable = true;
         }
 
+        if (wasHidden)
+            Opacity = 0.0;
         Show();
+        if (wasHidden)
+            BeginAnimation(OpacityProperty, new DoubleAnimation(0.0, 1.0,
+                new Duration(TimeSpan.FromMilliseconds(150)))
+                { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
     }
 
     internal void HidePreview()
     {
+        BeginAnimation(OpacityProperty, null); // cancel any in-progress fade-in
+        Opacity = 1.0;                          // reset for next show cycle
         ReleaseThumbnails();
         Hide();
     }
