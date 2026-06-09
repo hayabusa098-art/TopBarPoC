@@ -14,6 +14,8 @@ Build41B hover preview polish completed, validated, and pushed to origin/master.
 
 Build42A diagnostics enablement and TB-001 live DPI validation completed locally.
 
+Build42B P2 runtime taskbar auto-hide overlap hardening implemented locally.
+
 ## Build37 — Glass Minimal Refresh
 
 ### Current State
@@ -321,6 +323,30 @@ Observed:
   - WPF transforms remained 1.0
 - no runtime visual regression reproduced
 
+### Build42B
+
+- P2 runtime taskbar auto-hide overlap hardening
+- investigation: ABN_POSCHANGED was universally skipped; ABN_STATECHANGE + 500ms settle
+  was the sole recovery path, subject to shell-state race after auto-hide toggle
+- root cause: shell broadcasts ABN_POSCHANGED when a taskbar edge reservation changes
+  (authoritative "settled" signal); skipping it entirely forced reliance on the earlier,
+  less stable ABN_STATECHANGE notification
+- fix: ABN_POSCHANGED now handled with self-feedback guard (_inhibitAbnPosChanged flag)
+  - flag set before SetWindowPos in QueryAndApplyPosition
+  - flag cleared via BeginInvoke(Normal) one pump cycle later
+  - self-generated ABN_POSCHANGED (from our own SetWindowPos) → inhibited
+  - external ABN_POSCHANGED (from Windows taskbar reservation change) → QueueShellStateRefresh()
+- settle timer preserved as safety net
+- WM_WINDOWPOSCHANGING obstacle correction preserved and unchanged
+- build: 0 warnings / 0 errors
+- runtime validation:
+  - startup burst: 6 external ABN_POSCHANGED processed (deduplicated to 1 refresh/monitor);
+    2 self-generated correctly inhibited
+  - steady state: zero AppBar activity across 15K+ log lines — no notification storm
+  - both monitor positions stable; rc.Top = screen.Bounds.Y throughout — no downward drift
+- limitation: live top-edge taskbar auto-hide toggle not directly reproducible on current
+  machine (taskbar at bottom); ABN_POSCHANGED code path confirmed active via startup burst
+
 ## Key Findings
 
 - UW 100% - Large (40 DIP) feels best.
@@ -428,10 +454,11 @@ Potential user-selectable display modes:
 Hover preview DPI coordinate handling hardened (f52f7b2). Build42A diagnostics added.
 TB-001 is partially validated and remains a monitored technical limitation.
 
-#### P2 — Runtime taskbar auto-hide overlap hardening
+#### P2 — Runtime taskbar auto-hide overlap hardening — COMPLETE (Build42B)
 
-Verify TopBar coexistence with Windows taskbar auto-hide across edge cases and
-monitor configurations.
+ABN_POSCHANGED guarded handling implemented. Self-generated inhibited; external
+now triggers QueueShellStateRefresh. Settle timer and WM_WINDOWPOSCHANGING
+correction preserved. No notification storm; no downward drift observed.
 
 #### P3 — Hover preview polish
 

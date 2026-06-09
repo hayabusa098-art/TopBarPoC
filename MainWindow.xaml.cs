@@ -42,6 +42,7 @@ public partial class TopBarWindow : Window
     private bool             _closing;
     private bool             _displayRefreshQueued;
     private bool             _shellStateRefreshQueued;
+    private bool             _inhibitAbnPosChanged;
     private DispatcherTimer? _shellSettleTimer;
     private bool             _displaySettingsSubscribed;
     private IntPtr _lastExternalForeground;
@@ -264,11 +265,18 @@ public partial class TopBarWindow : Window
             $"dpiScale={GetDpiScale():F2} hwndDpi={GetDpiForWindow(hwnd)} " +
             $"{WpfDpiTransformSummary()} heightDip={_barHeightDip:F1} heightPx={heightPx} " +
             $"rc=({data.rc.Left},{data.rc.Top},{data.rc.Right},{data.rc.Bottom})");
+        // Suppress the ABN_POSCHANGED that our own SetWindowPos will trigger via WM_WINDOWPOSCHANGED
+        // → ABM_WINDOWPOSCHANGED → shell broadcasts ABN_POSCHANGED back to us. One pump cycle is
+        // sufficient: ABN_POSCHANGED is dispatched only after WM_WINDOWPOSCHANGED completes, and
+        // BeginInvoke(Normal) fires after the current message is fully processed.
+        _inhibitAbnPosChanged = true;
         SetWindowPos(hwnd, IntPtr.Zero,
             data.rc.Left, data.rc.Top,
             data.rc.Right - data.rc.Left,
             data.rc.Bottom - data.rc.Top,
             SWP_NOACTIVATE | SWP_NOZORDER);
+        Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(
+            () => _inhibitAbnPosChanged = false));
     }
 
     private void UnregisterAppBar()
@@ -301,11 +309,21 @@ public partial class TopBarWindow : Window
                     break;
                 }
                 case ABN_POSCHANGED:
-                    // Skip re-query. ABM_SETPOS itself triggers ABN_POSCHANGED, and
-                    // re-querying while our own bar is registered causes the shell to return
-                    // rc.Top = barHeight (treating our own reservation as an obstacle), which
-                    // shifts the bar down by one bar-height per notification cycle.
-                    // Fixed-top bar with bottom taskbar (primary environment) needs no adjustment.
+                    // Only respond to external ABN_POSCHANGED (e.g. Windows taskbar changing its
+                    // reservation after an auto-hide toggle). Our own ABM_SETPOS also triggers
+                    // ABN_POSCHANGED; responding to that causes a self-obstacle feedback loop
+                    // (shell returns rc.Top = barHeight treating our own reservation as an obstacle).
+                    // _inhibitAbnPosChanged is set in QueryAndApplyPosition before SetWindowPos
+                    // and cleared one pump cycle later, suppressing only the self-generated signal.
+                    if (!_inhibitAbnPosChanged)
+                    {
+                        Debug.WriteLine("[ABN_POSCHANGED] external — queuing shell state refresh");
+                        QueueShellStateRefresh();
+                    }
+                    else
+                    {
+                        Debug.WriteLine("[ABN_POSCHANGED] self-generated — inhibited");
+                    }
                     break;
                 case ABN_FULLSCREENAPP:
                     // Intentional: no auto-hide policy for full-screen apps.
