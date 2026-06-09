@@ -4,23 +4,70 @@
 
 Latest commits:
 
+677480c docs: add work-pc portable release workflow
+deaa288 style: polish hover preview glass appearance
+fa51923 feat: keep grouped hover preview open after close
+2144146 docs: sync project status after build43a
+efc06f9 feat: add hover preview fade-in animation
 a4a5ab6 diagnostics: add mixed dpi validation logging
-91eb9f4 feat: add hover preview close button support
-682a62f fix: harden ABN_POSCHANGED handling for runtime taskbar auto-hide overlap
-fbc32e5 diagnostics: add dpi validation logging and update tb-001 status
-0b67ea3 feat: polish hover previews
 
-Build41B hover preview polish completed, validated, and pushed to origin/master.
+Latest commit: 677480c docs: add work-pc portable release workflow.
 
-Build42A diagnostics enablement completed and pushed to origin/master.
+Build44A work-PC readiness investigation completed.
 
-Build42B P2 runtime taskbar auto-hide overlap hardening completed, validated, and pushed to origin/master.
+Build44B portable release workflow completed. No runtime code changes were made.
 
-Build41C hover preview close button completed, validated, and pushed to origin/master.
+Build44C work-PC trial checklist prepared. No runtime code changes were made.
 
-TB-001 Runtime DPI validation complete. All exercisable scenarios passed on current hardware.
+Work-PC trial package:
 
-origin/master synced. Working tree clean.
+* path: `artifacts\publish\workpc\TopBarPoC-workpc-win-x64.zip`
+* size: 69,842,835 bytes
+* SHA-256: `A17AADFB17A6AE7A20B144AC71129B1A8731B42CCB3C3FA2BBB130EAC87E552B`
+
+Repository state:
+
+* `master` and `origin/master` are synced at 677480c
+* tracked working tree is clean
+* `.claude/` is untracked
+
+Next action: transfer the ZIP to an authorized work PC and run the Build44C trial checklist.
+
+## Build44 - Work-PC Trial Preparation
+
+### Completed - Build44A Work-PC Readiness Investigation
+
+* Reviewed portable deployment constraints for a corporate Windows PC.
+* Identified SmartScreen, Defender, EDR, AppLocker, and WDAC as potential blockers.
+* Confirmed the trial should use a self-contained `win-x64` portable package.
+* No runtime changes were required.
+
+### Completed - Build44B Portable Release Workflow
+
+* Added the documented work-PC portable publish and rollback workflow.
+* Produced the self-contained package at
+  `artifacts\publish\workpc\TopBarPoC-workpc-win-x64.zip`.
+* Package size: 69,842,835 bytes.
+* Package SHA-256: `A17AADFB17A6AE7A20B144AC71129B1A8731B42CCB3C3FA2BBB130EAC87E552B`.
+* Manual development-PC smoke test passed for launch, AppBar reservation, exit,
+  reservation release, and relaunch.
+* No runtime changes were made.
+
+### Prepared - Build44C Work-PC Trial Checklist
+
+The trial checklist covers:
+
+* first launch and corporate security controls
+* AppBar reservation, exit, release, and relaunch
+* Explorer restart and sleep/resume
+* monitor hot-plug and DisplaySwitch topology changes
+* display scaling and taskbar auto-hide when policy permits
+* Teams, Outlook, browser, and VS Code daily workflow
+* evidence collection from screenshots, security prompts, process state, and
+  `%APPDATA%\TopBarPoC\logs\`
+
+Findings will be categorized as blocker, daily-use risk, minor issue, or passed.
+Code changes require a specific reproduced failure and approval.
 
 ## Build37 — Glass Minimal Refresh
 
@@ -486,6 +533,17 @@ Potential user-selectable display modes:
 * icon + title
 
 ### Next Build Candidates
+
+#### Next - Build44C Real Work-PC Trial Execution
+
+Transfer the verified portable ZIP to an authorized work PC and execute the prepared
+trial checklist. Record corporate security results, AppBar lifecycle behavior, runtime
+display recovery, daily application workflow, and diagnostics evidence.
+
+#### After Trial - Build44D Daily-Use Hardening
+
+Proceed only if the Build44C work-PC trial finds a specific reproducible failure.
+Scope fixes to approved blockers or daily-use risks; do not make speculative runtime changes.
 
 #### P1 — TB-001 Runtime DPI hardening — COMPLETE
 
