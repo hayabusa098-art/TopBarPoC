@@ -4,14 +4,14 @@
 
 Latest commits:
 
+4d146d8 feat: harden grouped hover preview close behavior
+5b6b6fa docs: update project status after build46b
 2e640d9 style: polish hover preview glass appearance
 4288b0b docs: update project status after build46a
 27e1b71 feat: add hover preview fade-out animation
 29f728d diagnostics: add TB-007 window enumeration tracing
-4df9b8e docs: update work-pc trial status
-677480c docs: add work-pc portable release workflow
 
-Latest commit: 2e640d9 style: polish hover preview glass appearance.
+Latest commit: 4d146d8 feat: harden grouped hover preview close behavior.
 
 Build44A work-PC readiness investigation completed.
 
@@ -27,17 +27,20 @@ Build46B Hover Preview Glass Polish completed and manually verified.
 
 Build46C Grouped Preview Close Hardening completed and verified on a real device.
 
-Work-PC trial package:
+Build47B Work-PC Portable Deployment Package implemented and locally verified.
+
+Current work-PC deployment package:
 
 * path: `artifacts\publish\workpc\TopBarPoC-workpc-win-x64.zip`
-* size: 69,842,835 bytes
-* SHA-256: `A17AADFB17A6AE7A20B144AC71129B1A8731B42CCB3C3FA2BBB130EAC87E552B`
+* size: 69,846,673 bytes
+* SHA-256: `3F15199847D6D20AD1B86D8B48BE51D3DCFD3C455A34B8B10D7C69F8D10FD20C`
 
 Repository state:
 
-* `master` and `origin/master` are synced at 2e640d9
+* `master` and `origin/master` are synced at 4d146d8
 * Build46A, Build46B, and Build46C are complete
-* build is green
+* Build47B documentation and packaging changes are pending approval
+* build and portable publish are green
 * real-device verification passed
 
 Current focus:
@@ -45,6 +48,7 @@ Current focus:
 * completed: Build46A - Hover Preview Fade Animation
 * completed: Build46B - Hover Preview Glass Polish
 * completed: Build46C - Grouped Preview Close Hardening
+* pending approval: Build47B - Work-PC Portable Deployment Package
 
 ## Build44 - Work-PC Trial Preparation
 
@@ -156,6 +160,28 @@ Code changes require a specific reproduced failure and approval.
 * `dotnet build` passed with 0 warnings and 0 errors.
 * `git diff --check` passed.
 * Real-device verification passed.
+
+## Build47 - Work-PC Deployment
+
+### Implemented - Build47B Work-PC Portable Deployment Package
+
+* Added `docs/work-pc-deployment.md` with package creation, transfer, hash verification,
+  startup shortcut, update, rollback, and uninstall guidance.
+* Documented SmartScreen, Microsoft Defender, EDR, AppLocker, and WDAC risks without
+  recommending policy bypasses.
+* Updated `scripts/publish-workpc.ps1` to publish self-contained `win-x64`, fail explicitly
+  on `dotnet publish` errors, and include deployment and trial guides in the package.
+* The publish script creates both the portable folder and ZIP under
+  `artifacts\publish\workpc` and prints the ZIP SHA-256.
+* No runtime, AppBar, or hover-preview behavior changed.
+* `dotnet build` passed with 0 warnings and 0 errors.
+* Publish script completed successfully.
+* Confirmed the portable folder contains `TopBarPoC.exe`, `WORKPC_DEPLOYMENT.md`, and
+  `WORKPC_TRIAL.md`.
+* Confirmed ZIP: `artifacts\publish\workpc\TopBarPoC-workpc-win-x64.zip`.
+* ZIP size: 69,846,673 bytes.
+* ZIP SHA-256: `3F15199847D6D20AD1B86D8B48BE51D3DCFD3C455A34B8B10D7C69F8D10FD20C`.
+* Pending approval; not committed or pushed.
 
 ## Build37 — Glass Minimal Refresh
 

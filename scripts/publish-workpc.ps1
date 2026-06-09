@@ -36,9 +36,20 @@ dotnet publish $projectPath `
     -p:DebugSymbols=false `
     --output $publishDir
 
-$trialDoc = Join-Path $repoRoot "docs\WORKPC_TRIAL.md"
-if (Test-Path $trialDoc) {
-    Copy-Item -LiteralPath $trialDoc -Destination (Join-Path $publishDir "WORKPC_TRIAL.md") -Force
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet publish failed with exit code $LASTEXITCODE"
+}
+
+$packageDocs = @(
+    @{ Source = "docs\work-pc-deployment.md"; Destination = "WORKPC_DEPLOYMENT.md" },
+    @{ Source = "docs\WORKPC_TRIAL.md"; Destination = "WORKPC_TRIAL.md" }
+)
+foreach ($packageDoc in $packageDocs) {
+    $sourcePath = Join-Path $repoRoot $packageDoc.Source
+    if (-not (Test-Path $sourcePath)) {
+        throw "Package documentation not found: $sourcePath"
+    }
+    Copy-Item -LiteralPath $sourcePath -Destination (Join-Path $publishDir $packageDoc.Destination) -Force
 }
 
 if (-not $NoZip) {
@@ -48,4 +59,6 @@ if (-not $NoZip) {
 Write-Host "Publish folder: $publishDir"
 if (-not $NoZip) {
     Write-Host "Zip package:    $zipPath"
+    $zipHash = Get-FileHash -LiteralPath $zipPath -Algorithm SHA256
+    Write-Host "Zip SHA-256:    $($zipHash.Hash)"
 }
