@@ -4,19 +4,23 @@
 
 Latest commits:
 
+a4a5ab6 diagnostics: add mixed dpi validation logging
+91eb9f4 feat: add hover preview close button support
+682a62f fix: harden ABN_POSCHANGED handling for runtime taskbar auto-hide overlap
+fbc32e5 diagnostics: add dpi validation logging and update tb-001 status
 0b67ea3 feat: polish hover previews
-56e3325 feat: add grouped hover preview cards for grouped window chips
-f52f7b2 fix: harden hover preview DPI coordinate handling
-20f0724 fix: resolve chip drag/drop hit-test dead zone in gap column
-41578a0 feat: add DWM hover preview for single window chips
 
 Build41B hover preview polish completed, validated, and pushed to origin/master.
 
-Build42A diagnostics enablement and TB-001 live DPI validation completed locally.
+Build42A diagnostics enablement completed and pushed to origin/master.
 
-Build42B P2 runtime taskbar auto-hide overlap hardening implemented locally.
+Build42B P2 runtime taskbar auto-hide overlap hardening completed, validated, and pushed to origin/master.
 
-Build41C hover preview close button implemented locally.
+Build41C hover preview close button completed, validated, and pushed to origin/master.
+
+TB-001 Runtime DPI validation complete. All exercisable scenarios passed on current hardware.
+
+origin/master synced. Working tree clean.
 
 ## Build37 — Glass Minimal Refresh
 
@@ -201,7 +205,6 @@ Expanded gaps and the visual separator made it reliably reproducible.
 
 ### Deferred
 
-* Hover close button
 * Animated fade in / out
 * Glass and transparency treatment (AllowsTransparency + DWM thumbnail validation)
 * Dynamic grouped preview removal after WM_CLOSE
@@ -312,7 +315,7 @@ Observed:
 - GetDpiForMonitor HRESULT and raw DPI diagnostics
 - GetDpiForWindow and WPF transform diagnostics
 - expanded DisplayRefresh and AppBarDpi logs
-- TB-001 partially validated:
+- TB-001 initial validation (full validation completed separately — see TB-001 in Active Backlog):
   - multi-monitor baseline passed
   - negative-origin baseline passed
   - runtime scaling manual UX passed
@@ -382,9 +385,9 @@ TB-005 is retained as the historical ID for completed Build37D Auto Density and 
 
 ### P1 Critical
 
-#### TB-001 Runtime DPI hardening
+#### TB-001 Runtime DPI hardening — VALIDATION COMPLETE
 
-Partial progress delivered alongside Build40 (commit f52f7b2):
+Partial hardening delivered alongside Build40 (commit f52f7b2):
 
 * Hover preview position now computed entirely in WPF DIP space
   (DeviceToDipPoint via PresentationSource.TransformFromDevice)
@@ -394,7 +397,7 @@ Partial progress delivered alongside Build40 (commit f52f7b2):
 * WM_DPICHANGED decoded and logged (dpiX, dpiY, suggested RECT)
 * QueryAndApplyPosition logs DPI scale and AppBar RECT on every reposition
 
-Build42A diagnostics and validation:
+Build42A diagnostics (commit fbc32e5):
 
 * File-backed diagnostics enabled for zero-debugger AppBar / DPI validation
 * Process/thread DPI awareness logged at startup
@@ -404,9 +407,23 @@ Build42A diagnostics and validation:
 * Current app mode confirmed system-DPI-aware (processAwareness=1)
 * No WM_DPICHANGED observed; hwndDpi remained 96; WPF transforms remained 1.0
 
-Remaining monitored risks: mixed DPI, monitor hot-plug, explicit per-monitor DPI behavior,
-and topology mutation edge cases. No immediate fix recommended unless a visual regression,
-mixed-DPI requirement, or runtime topology bug is reproduced.
+TB-001 real-device validation (commit a4a5ab6):
+
+* Mixed-DPI detection diagnostics ([AllScreensDpi]) added and confirmed working
+* Runtime scaling change validated: DISPLAY1 100% → 125% while TopBar running
+  — WM_SETTINGCHANGE wParam=0x009F is the effective refresh path for DPI changes
+  — WM_DPICHANGED does not fire for system-DPI-aware apps during runtime scaling changes
+  — WinForms Screen.Bounds correctly reflects updated virtual coordinates after scaling
+  — DisplayRefresh correctly re-measured bar width and AppBar reservation on both monitors
+  — Three-burst WM_SETTINGCHANGE oscillation absorbed cleanly by settle timer and debounce
+* Non-primary monitor validated: portrait secondary at negative Y origin (Y=-476) stable
+* Negative-origin AppBar validated: rc registered at Y=-476; no obstacle displacement observed
+* AppBar RECT stable across all repositioning events; no downward drift
+* WP-1 / WP-2 not reproducible on current hardware (all physical monitor DPIs = 96)
+  — GetDpiForMonitor returns physical hardware DPI (96) regardless of Windows scaling setting
+  — WP-1 / WP-2 remain theoretical risks for monitors with physical DPI ≠ 96
+
+Validation result: PASS on all exercisable scenarios. No code changes required.
 
 #### TB-002 Multi-monitor complete validation
 
@@ -470,25 +487,26 @@ Potential user-selectable display modes:
 
 ### Next Build Candidates
 
-#### P1 — TB-001 Runtime DPI hardening (partial)
+#### P1 — TB-001 Runtime DPI hardening — COMPLETE
 
-Hover preview DPI coordinate handling hardened (f52f7b2). Build42A diagnostics added.
-TB-001 is partially validated and remains a monitored technical limitation.
+Validated in Build42A diagnostics and TB-001 real-device testing (commit a4a5ab6).
+All exercisable scenarios passed. See TB-001 section in Active Backlog for full findings.
 
-#### P2 — Runtime taskbar auto-hide overlap hardening — COMPLETE (Build42B)
+#### P1 — Hover preview polish (remaining visual refinements)
 
-ABN_POSCHANGED guarded handling implemented. Self-generated inhibited; external
-now triggers QueueShellStateRefresh. Settle timer and WM_WINDOWPOSCHANGING
-correction preserved. No notification storm; no downward drift observed.
+TB-008 follow-up. Close button delivered (Build41C). Remaining: fade animation,
+glass / transparency treatment, dynamic grouped preview removal after WM_CLOSE.
 
-#### P3 — Hover preview polish
+#### P2 — Runtime taskbar auto-hide coexistence hardening
 
-TB-008 follow-up. Close button delivered (Build41C). Remaining: fade, glass / transparency,
-dynamic grouped preview removal after WM_CLOSE.
+ABN_POSCHANGED guarded handling delivered in Build42B. Settle timer and
+WM_WINDOWPOSCHANGING correction preserved. Remaining edge cases: top-edge taskbar
+auto-hide, multi-session coexistence, and full-screen app interactions.
 
-#### P3 — 10+ chip and reorder follow-up polish
+#### P3 — Future UX enhancements and backlog items
 
-Overflow, scroll, and drag/drop behavior under high chip counts and edge positions.
+Window chip display modes, overflow / high-chip-count polish, right-click context actions,
+and runtime taskbar filter improvements. See Active Backlog for full list.
 
 ## Future Design Direction
 
@@ -499,6 +517,7 @@ Overflow, scroll, and drag/drop behavior under high chip counts and edge positio
 Build40 delivers single-window DWM hover preview.
 Build41A delivers grouped horizontal preview cards.
 Build41B delivers core hover preview polish.
+Build41C delivers hover preview close button.
 
 #### Planned direction
 
@@ -538,20 +557,33 @@ Close button delivered as Build41C.
 
 ---
 
-### TB-001 Remaining Direction
+### TB-001 Remaining Direction — VALIDATION COMPLETE
 
-Still open — not marked complete:
+Real-device validation completed (commit a4a5ab6).
 
-* Mixed-DPI behavior: per-monitor DPI divergence across multiple monitors
-* Monitor hot-plug: disconnect / reconnect after startup
-* Explicit per-monitor DPI awareness behavior
-* Topology mutation edge cases
-* Non-primary monitor DPI edge cases
+Validated:
 
-Partial hardening delivered in f52f7b2 (hover preview coordinate fix, display-refresh teardown,
-WM_DPICHANGED diagnostic logging). Build42A partially validated runtime scaling UX and confirmed
-current system-DPI-aware behavior. Per-monitor DPI hardening should be investigated only if a
-visual regression appears, mixed-DPI requirements increase, or topology bugs are reproduced.
+* Runtime scaling change while running (WM_SETTINGCHANGE path confirmed)
+* Non-primary monitor (portrait secondary at negative Y origin)
+* Negative-origin monitor AppBar positioning
+* AppBar RECT stability across multiple repositioning events
+
+Key finding — Windows behavior:
+
+* System-DPI-aware apps do not receive WM_DPICHANGED during runtime scaling changes
+* WM_SETTINGCHANGE wParam=0x009F is the effective trigger for DPI recalculation
+* WinForms Screen.Bounds correctly reflects virtual coordinate changes after scaling adjustments
+* GetDpiForMonitor returns physical hardware DPI (96) regardless of Windows scaling setting
+* Windows sends multiple WM_SETTINGCHANGE bursts per scaling change; settle timer absorbs them
+
+Residual risks (not reproducible on current hardware):
+
+* WP-1: Width formula divergence on monitors with physical hardware DPI ≠ 96
+* WP-2: AppBar RECT height on those same monitors
+* Monitor hot-plug: disconnect / reconnect not validated
+
+Per-monitor DPI hardening should be investigated only if a visual regression appears on HiDPI
+physical hardware (laptop panels, 4K displays) or if such hardware becomes available for testing.
 
 ---
 
@@ -559,11 +591,16 @@ visual regression appears, mixed-DPI requirements increase, or topology bugs are
 
 ### KP-001 Runtime DPI runtime instability
 
-Partially validated in Build42A. No immediate visual regression reproduced under current
-system-DPI-aware mode; mixed-DPI, hot-plug, and per-monitor DPI behavior remain monitored risks.
+Validated in Build42A diagnostics and TB-001 real-device testing (commit a4a5ab6). Runtime
+scaling change (100% → 125%) validated: DisplayRefresh correctly adapted bar width and AppBar
+reservation. Residual risk: HiDPI physical hardware (monitors with physical DPI > 96) not
+available for testing; WP-1 / WP-2 remain theoretical for that scenario.
 
 ### KP-002 Grouped multi-window close edge cases
 
 Grouped close can still exhibit intermittent stale-handle or popup interaction edge cases.
 
-### KP-003 Negative-origin monitor validation incomplete
+### KP-003 Negative-origin monitor validation — COMPLETE
+
+Portrait secondary monitor at Y=-476 validated in TB-001 real-device testing. AppBar correctly
+registered at negative Y; no obstacle displacement observed; bar position stable.
