@@ -68,7 +68,12 @@ public partial class HoverPreviewWindow : Window
         {
             var card = _cards[i];
             card.ThumbnailAvailable = false;
-            if (DwmRegisterThumbnail(helper.Handle, card.Hwnd, out var thumbnailHandle) != 0)
+            int registerHr = DwmRegisterThumbnail(helper.Handle, card.Hwnd, out var thumbnailHandle);
+            DiagnosticsLog.WriteLine(
+                $"[DwmThumbnail] register source=0x{card.Hwnd.ToInt64():X} " +
+                $"destination=0x{helper.Handle.ToInt64():X} hr=0x{registerHr:X8} " +
+                $"thumbnail=0x{thumbnailHandle.ToInt64():X}");
+            if (registerHr != 0 || thumbnailHandle == IntPtr.Zero)
                 continue;
 
             int left = (int)Math.Round(i * (CardWidthDip + CardGapDip) * dpiScale);
@@ -83,7 +88,17 @@ public partial class HoverPreviewWindow : Window
                 fVisible = 1,
                 fSourceClientAreaOnly = 1,
             };
-            DwmUpdateThumbnailProperties(thumbnailHandle, ref props);
+            int updateHr = DwmUpdateThumbnailProperties(thumbnailHandle, ref props);
+            DiagnosticsLog.WriteLine(
+                $"[DwmThumbnail] update thumbnail=0x{thumbnailHandle.ToInt64():X} hr=0x{updateHr:X8}");
+            if (updateHr != 0)
+            {
+                int unregisterHr = DwmUnregisterThumbnail(thumbnailHandle);
+                DiagnosticsLog.WriteLine(
+                    $"[DwmThumbnail] unregister-after-update-failure " +
+                    $"thumbnail=0x{thumbnailHandle.ToInt64():X} hr=0x{unregisterHr:X8}");
+                continue;
+            }
             _thumbnailHandles.Add(thumbnailHandle);
             card.ThumbnailAvailable = true;
         }
@@ -180,7 +195,11 @@ public partial class HoverPreviewWindow : Window
 
     private static RECT CreateThumbnailDestination(IntPtr thumbnailHandle, int areaLeft, int areaTop, int areaWidth, int areaHeight)
     {
-        if (DwmQueryThumbnailSourceSize(thumbnailHandle, out var sourceSize) != 0 ||
+        int queryHr = DwmQueryThumbnailSourceSize(thumbnailHandle, out var sourceSize);
+        DiagnosticsLog.WriteLine(
+            $"[DwmThumbnail] query-size thumbnail=0x{thumbnailHandle.ToInt64():X} " +
+            $"hr=0x{queryHr:X8} size={sourceSize.Cx}x{sourceSize.Cy}");
+        if (queryHr != 0 ||
             sourceSize.Cx <= 0 ||
             sourceSize.Cy <= 0 ||
             areaWidth <= 0 ||
@@ -229,8 +248,14 @@ public partial class HoverPreviewWindow : Window
 
     private void ReleaseThumbnails()
     {
-        foreach (var thumbnailHandle in _thumbnailHandles)
-            DwmUnregisterThumbnail(thumbnailHandle);
+        var handles = _thumbnailHandles.ToArray();
         _thumbnailHandles.Clear();
+        foreach (var thumbnailHandle in handles)
+        {
+            int unregisterHr = DwmUnregisterThumbnail(thumbnailHandle);
+            DiagnosticsLog.WriteLine(
+                $"[DwmThumbnail] unregister thumbnail=0x{thumbnailHandle.ToInt64():X} " +
+                $"hr=0x{unregisterHr:X8}");
+        }
     }
 }

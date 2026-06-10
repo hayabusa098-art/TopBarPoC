@@ -27,6 +27,8 @@ Build46B Hover Preview Glass Polish completed and manually verified.
 
 Build46C Grouped Preview Close Hardening completed and verified on a real device.
 
+Build47A Sleep/Resume Hardening completed and manually verified.
+
 Build47B Work-PC Portable Deployment Package implemented and locally verified.
 
 Current work-PC deployment package:
@@ -38,7 +40,7 @@ Current work-PC deployment package:
 Repository state:
 
 * `master` and `origin/master` are synced at 4d146d8
-* Build46A, Build46B, and Build46C are complete
+* Build46A, Build46B, Build46C, and Build47A are complete
 * Build47B documentation and packaging changes are pending approval
 * build and portable publish are green
 * real-device verification passed
@@ -48,6 +50,7 @@ Current focus:
 * completed: Build46A - Hover Preview Fade Animation
 * completed: Build46B - Hover Preview Glass Polish
 * completed: Build46C - Grouped Preview Close Hardening
+* completed: Build47A - Sleep/Resume Hardening
 * pending approval: Build47B - Work-PC Portable Deployment Package
 
 ## Build44 - Work-PC Trial Preparation
@@ -162,6 +165,14 @@ Code changes require a specific reproduced failure and approval.
 * Real-device verification passed.
 
 ## Build47 - Work-PC Deployment
+
+### Completed - Build47A Sleep/Resume Hardening
+
+* Delivered sleep/resume hardening.
+* Added power lifecycle handling for suspend and resume transitions.
+* Added DWM thumbnail lifecycle hardening across power transitions.
+* `dotnet build` passed with 0 warnings and 0 errors.
+* Manual sleep/resume verification passed with no issues observed.
 
 ### Implemented - Build47B Work-PC Portable Deployment Package
 
@@ -588,6 +599,11 @@ Validation result: PASS on all exercisable scenarios. No code changes required.
 #### TB-002 Multi-monitor complete validation
 
 Negative-origin, vertical stack, non-primary, runtime layout changes.
+
+Newly discovered issue:
+
+* Runtime monitor extension does not create TopBar on a newly added monitor while the
+  application is already running. Restarting TopBar fixes the issue.
 
 ### P2 Important
 

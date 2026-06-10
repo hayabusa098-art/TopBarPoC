@@ -46,6 +46,10 @@ public partial class TopBarWindow : Window
     private bool             _inhibitAbnPosChanged;
     private DispatcherTimer? _shellSettleTimer;
     private bool             _displaySettingsSubscribed;
+    private bool             _powerModeSubscribed;
+    private bool             _isPowerSuspended;
+    private bool             _isResuming;
+    private DispatcherTimer? _resumeSettleTimer;
     private IntPtr _lastExternalForeground;
     private IntPtr _lastRevealedForeground;
     private IntPtr _dragCandidateHwnd;
@@ -57,6 +61,7 @@ public partial class TopBarWindow : Window
     private HoverPreviewWindow?  _previewWindow;
     private DispatcherTimer?     _hideTimer;
     private readonly HashSet<IntPtr> _pendingPreviewCloseHwnds = [];
+    private readonly HashSet<DispatcherTimer> _previewCloseConfirmationTimers = [];
     private int _previewSessionGeneration;
     private bool _previewFadeOutRequested;
     private double               _currentChipGap = 3.0;
@@ -101,13 +106,20 @@ public partial class TopBarWindow : Window
             _clock?.Stop();
             _windowPollTimer?.Stop();
             _shellSettleTimer?.Stop();
+            _resumeSettleTimer?.Stop();
             CancelHoverTimer();
             CancelHideTimer();
+            StopPreviewCloseConfirmationTimers();
             _previewWindow?.Close();
             if (_displaySettingsSubscribed)
             {
                 SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
                 _displaySettingsSubscribed = false;
+            }
+            if (_powerModeSubscribed)
+            {
+                SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
+                _powerModeSubscribed = false;
             }
             UnregisterAppBar();
         };
@@ -116,7 +128,11 @@ public partial class TopBarWindow : Window
         _clock.Tick += (_, _) => UpdateClock();
 
         _windowPollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        _windowPollTimer.Tick += (_, _) => RefreshWindowChips();
+        _windowPollTimer.Tick += (_, _) =>
+        {
+            if (!_isPowerSuspended && !_isResuming)
+                RefreshWindowChips();
+        };
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -128,6 +144,11 @@ public partial class TopBarWindow : Window
         {
             SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
             _displaySettingsSubscribed = true;
+        }
+        if (!_powerModeSubscribed)
+        {
+            SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
+            _powerModeSubscribed = true;
         }
         UpdateClock();
         _clock.Start();
@@ -179,6 +200,76 @@ public partial class TopBarWindow : Window
     private void SystemEvents_DisplaySettingsChanged(object? sender, EventArgs e)
         => QueueDisplayRefresh();
 
+    private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Suspend)
+        {
+            DiagnosticsLog.WriteLine("[Power] Suspend");
+            _isPowerSuspended = true;
+            _isResuming = false;
+            Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(
+                () => TeardownForPowerTransition("suspend")));
+        }
+        else if (e.Mode == PowerModes.Resume)
+        {
+            DiagnosticsLog.WriteLine("[Power] Resume");
+            Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(BeginResumeRefresh));
+        }
+    }
+
+    private void TeardownForPowerTransition(string phase)
+    {
+        if (_closing) return;
+
+        _windowPollTimer.Stop();
+        _shellSettleTimer?.Stop();
+        _resumeSettleTimer?.Stop();
+        CancelHoverTimer();
+        CancelHideTimer();
+        StopPreviewCloseConfirmationTimers();
+        _hoverHwnd = IntPtr.Zero;
+        _previewFadeOutRequested = false;
+        _previewWindow?.HidePreview();
+        DiagnosticsLog.WriteLine($"[Power] teardown complete phase={phase}");
+    }
+
+    private void BeginResumeRefresh()
+    {
+        if (_closing) return;
+
+        _isPowerSuspended = false;
+        _isResuming = true;
+        TeardownForPowerTransition("resume");
+        _isPowerSuspended = false;
+        _isResuming = true;
+
+        _resumeSettleTimer ??= new DispatcherTimer(DispatcherPriority.Normal)
+            { Interval = TimeSpan.FromMilliseconds(750) };
+        _resumeSettleTimer.Stop();
+        _resumeSettleTimer.Tick -= ResumeSettleTimer_Tick;
+        _resumeSettleTimer.Tick += ResumeSettleTimer_Tick;
+        _resumeSettleTimer.Start();
+        DiagnosticsLog.WriteLine("[ResumeRefresh] settle scheduled delayMs=750");
+    }
+
+    private void ResumeSettleTimer_Tick(object? sender, EventArgs e)
+    {
+        _resumeSettleTimer?.Stop();
+        if (_closing) return;
+
+        DiagnosticsLog.WriteLine("[ResumeRefresh] refresh starting");
+        _isPowerSuspended = false;
+        QueueDisplayRefresh();
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            if (_closing) return;
+            RefreshWindowChips();
+            _isResuming = false;
+            _windowPollTimer.Start();
+            DiagnosticsLog.WriteLine("[ResumeRefresh] refresh complete");
+        }));
+    }
+
     private void QueueDisplayRefresh()
     {
         if (!Dispatcher.CheckAccess())
@@ -187,6 +278,7 @@ public partial class TopBarWindow : Window
             return;
         }
 
+        if (_isPowerSuspended) return;
         if (_displayRefreshQueued) return;
         _displayRefreshQueued = true;
 
@@ -240,6 +332,7 @@ public partial class TopBarWindow : Window
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(QueueShellStateRefresh));
             return;
         }
+        if (_isPowerSuspended || _isResuming) return;
         if (_shellStateRefreshQueued) return;
         _shellStateRefreshQueued = true;
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
@@ -883,6 +976,7 @@ public partial class TopBarWindow : Window
 
     private void ChipButton_MouseEnter(object sender, MouseEventArgs e)
     {
+        if (_isPowerSuspended || _isResuming) return;
         if (sender is not Button { Tag: IntPtr hwnd } btn) return;
         _hoverHwnd = hwnd;
         CancelHideTimer();
@@ -892,6 +986,7 @@ public partial class TopBarWindow : Window
         _hoverTimer.Tick += (_, _) =>
         {
             CancelHoverTimer();
+            if (_isPowerSuspended || _isResuming) return;
             ShowHoverPreview(_hoverHwnd, btn);
         };
         _hoverTimer.Start();
@@ -917,6 +1012,7 @@ public partial class TopBarWindow : Window
     // ── Hover preview (Build40 — DWM thumbnail) ──────────────────────────────────
     private void ShowHoverPreview(IntPtr hwnd, Button sourceChip)
     {
+        if (_isPowerSuspended || _isResuming) return;
         if (hwnd == IntPtr.Zero) return;
         var vm = _chipVms.FirstOrDefault(v => v.Handle == hwnd);
         if (vm is null) return;
@@ -1009,8 +1105,16 @@ public partial class TopBarWindow : Window
         int confirmationChecks = 0;
         var confirmationTimer = new DispatcherTimer(DispatcherPriority.Normal)
             { Interval = TimeSpan.FromMilliseconds(50) };
+        _previewCloseConfirmationTimers.Add(confirmationTimer);
         confirmationTimer.Tick += (_, _) =>
         {
+            if (_isPowerSuspended || _isResuming)
+            {
+                confirmationTimer.Stop();
+                _previewCloseConfirmationTimers.Remove(confirmationTimer);
+                _pendingPreviewCloseHwnds.Remove(hwnd);
+                return;
+            }
             confirmationChecks++;
             bool destroyed = !IsWindow(hwnd);
             bool timedOut = confirmationChecks >= maxConfirmationChecks;
@@ -1022,6 +1126,7 @@ public partial class TopBarWindow : Window
             if (!destroyed && !timedOut && !stalePreview) return;
 
             confirmationTimer.Stop();
+            _previewCloseConfirmationTimers.Remove(confirmationTimer);
             _pendingPreviewCloseHwnds.Remove(hwnd);
 
             if (stalePreview) return;
@@ -1068,14 +1173,24 @@ public partial class TopBarWindow : Window
         _hideTimer = null;
     }
 
+    private void StopPreviewCloseConfirmationTimers()
+    {
+        foreach (var timer in _previewCloseConfirmationTimers.ToList())
+            timer.Stop();
+        _previewCloseConfirmationTimers.Clear();
+        _pendingPreviewCloseHwnds.Clear();
+    }
+
     private void StartHideTimer()
     {
+        if (_isPowerSuspended || _isResuming) return;
         CancelHideTimer();
         _hideTimer = new DispatcherTimer(DispatcherPriority.Normal)
             { Interval = TimeSpan.FromMilliseconds(200) };
         _hideTimer.Tick += (_, _) =>
         {
             CancelHideTimer();
+            if (_isPowerSuspended || _isResuming) return;
             _previewFadeOutRequested = true;
             _previewWindow?.FadeOutPreview();
         };
