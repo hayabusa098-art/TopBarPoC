@@ -45,7 +45,6 @@ public partial class TopBarWindow : Window
     private bool             _shellStateRefreshQueued;
     private bool             _inhibitAbnPosChanged;
     private DispatcherTimer? _shellSettleTimer;
-    private bool             _displaySettingsSubscribed;
     private bool             _powerModeSubscribed;
     private bool             _isPowerSuspended;
     private bool             _isResuming;
@@ -111,11 +110,6 @@ public partial class TopBarWindow : Window
             CancelHideTimer();
             StopPreviewCloseConfirmationTimers();
             _previewWindow?.Close();
-            if (_displaySettingsSubscribed)
-            {
-                SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
-                _displaySettingsSubscribed = false;
-            }
             if (_powerModeSubscribed)
             {
                 SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
@@ -140,11 +134,6 @@ public partial class TopBarWindow : Window
     {
         LogAllScreensDpi();
         RegisterAppBar();
-        if (!_displaySettingsSubscribed)
-        {
-            SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
-            _displaySettingsSubscribed = true;
-        }
         if (!_powerModeSubscribed)
         {
             SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
@@ -196,9 +185,6 @@ public partial class TopBarWindow : Window
             _screen.Bounds.Width, heightPx,
             SWP_NOACTIVATE | SWP_NOZORDER);
     }
-
-    private void SystemEvents_DisplaySettingsChanged(object? sender, EventArgs e)
-        => QueueDisplayRefresh();
 
     private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
     {
@@ -270,7 +256,7 @@ public partial class TopBarWindow : Window
         }));
     }
 
-    private void QueueDisplayRefresh()
+    internal void QueueDisplayRefresh()
     {
         if (!Dispatcher.CheckAccess())
         {
